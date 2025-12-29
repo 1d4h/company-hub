@@ -169,15 +169,38 @@ git commit -m "메시지"      # 커밋
 
 실제 지도 기능을 사용하려면 네이버 클라우드 플랫폼에서 API 키를 발급받아야 합니다:
 
-1. [네이버 클라우드 플랫폼](https://www.ncloud.com/) 회원가입
-2. Console → Services → Maps → API 인증 정보 생성
-3. Client ID와 Client Secret 발급
-4. `.dev.vars` 파일에 추가:
+### 간단 설정 가이드:
+
+1. **[네이버 클라우드 플랫폼](https://www.ncloud.com/)** 회원가입
+2. **Console** → **Services** → **Maps** → **API 인증 정보 생성**
+3. **Client ID**와 **Client Secret** 발급
+4. **프로젝트 루트**에 `.dev.vars` 파일 수정:
+
 ```env
-NAVER_MAP_CLIENT_ID=your_client_id
-NAVER_MAP_CLIENT_SECRET=your_client_secret
+NAVER_MAP_CLIENT_ID=발급받은_Client_ID
+NAVER_MAP_CLIENT_SECRET=발급받은_Client_Secret
 ```
-5. `src/index.tsx`에서 지오코딩 API 주석 해제 및 활성화
+
+5. `src/index.tsx` 파일의 네이버 맵 스크립트 URL 수정:
+```html
+<!-- YOUR_CLIENT_ID를 발급받은 Client ID로 교체 -->
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=YOUR_CLIENT_ID"></script>
+```
+
+6. 서비스 재시작:
+```bash
+npm run build
+pm2 restart webapp
+```
+
+### 📖 상세 설정 가이드
+
+네이버 맵 API 설정에 대한 자세한 내용은 **[NAVER_MAP_SETUP.md](./NAVER_MAP_SETUP.md)** 파일을 참고하세요:
+- 단계별 API 키 발급 방법
+- 프로젝트 설정 방법
+- 테스트 방법
+- 지도 렌더링 코드
+- 문제 해결 가이드
 
 ## 📝 API 엔드포인트
 
