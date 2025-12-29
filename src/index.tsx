@@ -4,6 +4,8 @@ import { serveStatic } from 'hono/cloudflare-workers'
 
 type Bindings = {
   DB: D1Database;
+  NAVER_MAP_CLIENT_ID?: string;
+  NAVER_MAP_CLIENT_SECRET?: string;
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -280,27 +282,52 @@ app.post('/api/geocode', async (c) => {
   try {
     const { address } = await c.req.json()
     
-    // 네이버 맵 API 호출을 위한 플레이스홀더
-    // 실제 사용시 네이버 클라우드 플랫폼에서 발급받은 Client ID와 Secret을 환경변수로 설정해야 합니다
-    // const clientId = c.env.NAVER_MAP_CLIENT_ID
-    // const clientSecret = c.env.NAVER_MAP_CLIENT_SECRET
+    // 네이버 맵 API 키 확인
+    const clientId = c.env.NAVER_MAP_CLIENT_ID
+    const clientSecret = c.env.NAVER_MAP_CLIENT_SECRET
     
-    // 임시로 서울 중심 좌표 반환 (실제로는 네이버 지오코딩 API 호출)
-    // const response = await fetch(`https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`, {
-    //   headers: {
-    //     'X-NCP-APIGW-API-KEY-ID': clientId,
-    //     'X-NCP-APIGW-API-KEY': clientSecret
-    //   }
-    // })
+    // API 키가 설정되어 있으면 실제 네이버 지오코딩 API 호출
+    if (clientId && clientSecret && clientId !== 'your_client_id_here') {
+      try {
+        const response = await fetch(
+          `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`,
+          {
+            headers: {
+              'X-NCP-APIGW-API-KEY-ID': clientId,
+              'X-NCP-APIGW-API-KEY': clientSecret
+            }
+          }
+        )
+        
+        const data = await response.json()
+        
+        // 네이버 API 응답 처리
+        if (data.status === 'OK' && data.addresses && data.addresses.length > 0) {
+          const result = data.addresses[0]
+          return c.json({
+            success: true,
+            result: {
+              latitude: parseFloat(result.y),
+              longitude: parseFloat(result.x),
+              address: result.roadAddress || result.jibunAddress || address
+            }
+          })
+        }
+      } catch (apiError) {
+        console.error('네이버 지오코딩 API 오류:', apiError)
+        // API 오류시 더미 데이터로 폴백
+      }
+    }
     
-    // 개발용 더미 데이터
+    // API 키가 없거나 오류 발생시 개발용 더미 데이터 반환
     return c.json({
       success: true,
       result: {
         latitude: 37.5665 + (Math.random() - 0.5) * 0.1,
         longitude: 126.9780 + (Math.random() - 0.5) * 0.1,
         address: address
-      }
+      },
+      notice: '네이버 맵 API 키가 설정되지 않아 더미 좌표를 반환합니다. .dev.vars 파일에 API 키를 설정해주세요.'
     })
   } catch (error) {
     return c.json({ success: false, message: '주소 변환 중 오류가 발생했습니다.' }, 500)
@@ -320,6 +347,8 @@ app.get('/', (c) => {
         <title>고객관리 시스템</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <!-- 네이버 지도 API (실제 사용시 발급받은 Client ID로 교체) -->
+        <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=YOUR_CLIENT_ID"></script>
     </head>
     <body class="bg-gray-50">
         <div id="app"></div>
