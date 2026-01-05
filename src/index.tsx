@@ -25,6 +25,30 @@ app.post('/api/auth/login', async (c) => {
   try {
     const { username, password } = await c.req.json()
     
+    // D1이 없는 경우 하드코딩된 테스트 사용자 사용
+    if (!c.env.DB) {
+      const testUsers = [
+        { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: '관리자' },
+        { id: 2, username: 'user', password: 'user123', role: 'user', name: '사용자' }
+      ]
+      
+      const user = testUsers.find(u => u.username === username && u.password === password)
+      
+      if (!user) {
+        return c.json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' }, 401)
+      }
+      
+      return c.json({ 
+        success: true, 
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          name: user.name
+        }
+      })
+    }
+    
     const user = await c.env.DB.prepare(
       'SELECT id, username, role, name FROM users WHERE username = ? AND password = ?'
     ).bind(username, password).first()
@@ -54,6 +78,53 @@ app.post('/api/auth/login', async (c) => {
 // 모든 고객 조회
 app.get('/api/customers', async (c) => {
   try {
+    // D1이 없는 경우 하드코딩된 테스트 데이터 반환
+    if (!c.env.DB) {
+      const testCustomers = [
+        {
+          id: 1,
+          customer_name: '김철수',
+          phone: '010-1234-5678',
+          email: 'kim@example.com',
+          address: '서울특별시 강남구 테헤란로 123',
+          address_detail: '456호',
+          latitude: 37.5012,
+          longitude: 127.0396,
+          memo: '중요 고객',
+          created_at: '2024-01-15 10:30:00',
+          updated_at: '2024-01-15 10:30:00'
+        },
+        {
+          id: 2,
+          customer_name: '이영희',
+          phone: '010-2345-6789',
+          email: 'lee@example.com',
+          address: '서울특별시 서초구 서초대로 78길 22',
+          address_detail: '101동 203호',
+          latitude: 37.4833,
+          longitude: 127.0322,
+          memo: 'VIP 고객',
+          created_at: '2024-01-16 14:20:00',
+          updated_at: '2024-01-16 14:20:00'
+        },
+        {
+          id: 3,
+          customer_name: '박민수',
+          phone: '010-3456-7890',
+          email: 'park@example.com',
+          address: '서울특별시 송파구 올림픽로 300',
+          address_detail: '롯데월드타워 10층',
+          latitude: 37.5125,
+          longitude: 127.1025,
+          memo: '신규 고객',
+          created_at: '2024-01-17 09:15:00',
+          updated_at: '2024-01-17 09:15:00'
+        }
+      ]
+      
+      return c.json({ success: true, customers: testCustomers })
+    }
+    
     const { results } = await c.env.DB.prepare(
       'SELECT * FROM customers ORDER BY created_at DESC'
     ).all()
