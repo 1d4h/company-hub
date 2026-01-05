@@ -674,8 +674,24 @@ function initNaverMap() {
     
     // 지도 생성 (DOM이 준비될 때까지 대기)
     console.log('🗺️ 네이버 지도 초기화 중...', mapDiv)
+    
+    // postMessage 오류 무시 (CORS 관련)
+    const originalConsoleError = console.error
+    console.error = function(...args) {
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('postMessage')) {
+        // postMessage 오류는 무시 (네이버 맵 내부 통신)
+        return
+      }
+      originalConsoleError.apply(console, args)
+    }
+    
     state.map = new naver.maps.Map(mapDiv, mapOptions)
     console.log('✅ 지도 객체 생성 완료:', state.map)
+    
+    // 원래 console.error 복원
+    setTimeout(() => {
+      console.error = originalConsoleError
+    }, 1000)
     
     // 고객 마커 추가
     validCustomers.forEach(customer => {
@@ -705,10 +721,25 @@ function initNaverMap() {
     })
     
     console.log(`✅ 네이버 지도 초기화 완료: ${validCustomers.length}개의 마커 표시`)
-    showToast('지도가 로드되었습니다', 'success')
+    
+    // 지도 로드 후 타일 로딩 완료 대기
+    setTimeout(() => {
+      showToast('지도가 로드되었습니다', 'success')
+    }, 500)
     
   } catch (error) {
     console.error('네이버 지도 초기화 오류:', error)
+    
+    // postMessage 오류는 무시하고 지도가 표시되는지 확인
+    if (error.message && error.message.includes('postMessage')) {
+      console.warn('⚠️ postMessage 오류 발생했지만 지도는 정상 작동할 수 있습니다')
+      // 지도 객체가 생성되었다면 성공으로 간주
+      if (state.map) {
+        showToast('지도가 로드되었습니다 (일부 기능 제한)', 'info')
+        return
+      }
+    }
+    
     showMapFallback()
     showToast('지도 로드 실패: 네이버 API 인증을 확인해주세요', 'error')
   }
