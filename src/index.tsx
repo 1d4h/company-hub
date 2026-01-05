@@ -4,8 +4,7 @@ import { serveStatic } from 'hono/cloudflare-workers'
 
 type Bindings = {
   DB: D1Database;
-  NAVER_MAP_CLIENT_ID?: string;
-  NAVER_MAP_CLIENT_SECRET?: string;
+  TMAP_APP_KEY?: string;
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -347,45 +346,44 @@ app.post('/api/customers/batch-upload', async (c) => {
 })
 
 // ============================================
-// 네이버 맵 API - 지오코딩 (주소 → 좌표)
+// T Map API - 지오코딩 (주소 → 좌표)
 // ============================================
 app.post('/api/geocode', async (c) => {
   try {
     const { address } = await c.req.json()
     
-    // 네이버 맵 API 키 확인
-    const clientId = c.env.NAVER_MAP_CLIENT_ID
-    const clientSecret = c.env.NAVER_MAP_CLIENT_SECRET
+    // T Map API 키 확인
+    const tmapAppKey = c.env.TMAP_APP_KEY
     
-    // API 키가 설정되어 있으면 실제 네이버 지오코딩 API 호출
-    if (clientId && clientSecret && clientId !== 't29b9q2500') {
+    // API 키가 설정되어 있으면 실제 T Map 지오코딩 API 호출
+    if (tmapAppKey) {
       try {
         const response = await fetch(
-          `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`,
+          `https://apis.openapi.sk.com/tmap/geo/fullAddrGeo?version=1&format=json&callback=result&coordType=WGS84GEO&fullAddr=${encodeURIComponent(address)}`,
           {
             headers: {
-              'X-NCP-APIGW-API-KEY-ID': clientId,
-              'X-NCP-APIGW-API-KEY': clientSecret
+              'Accept': 'application/json',
+              'appKey': tmapAppKey
             }
           }
         )
         
         const data = await response.json()
         
-        // 네이버 API 응답 처리
-        if (data.status === 'OK' && data.addresses && data.addresses.length > 0) {
-          const result = data.addresses[0]
+        // T Map API 응답 처리
+        if (data.coordinateInfo && data.coordinateInfo.coordinate && data.coordinateInfo.coordinate.length > 0) {
+          const result = data.coordinateInfo.coordinate[0]
           return c.json({
             success: true,
             result: {
-              latitude: parseFloat(result.y),
-              longitude: parseFloat(result.x),
-              address: result.roadAddress || result.jibunAddress || address
+              latitude: parseFloat(result.lat || result.newLat),
+              longitude: parseFloat(result.lon || result.newLon),
+              address: address
             }
           })
         }
       } catch (apiError) {
-        console.error('네이버 지오코딩 API 오류:', apiError)
+        console.error('T Map 지오코딩 API 오류:', apiError)
         // API 오류시 더미 데이터로 폴백
       }
     }
@@ -398,7 +396,7 @@ app.post('/api/geocode', async (c) => {
         longitude: 126.9780 + (Math.random() - 0.5) * 0.1,
         address: address
       },
-      notice: '네이버 맵 API 키가 설정되지 않아 더미 좌표를 반환합니다. .dev.vars 파일에 API 키를 설정해주세요.'
+      notice: 'T Map API 키가 설정되지 않아 더미 좌표를 반환합니다. .dev.vars 파일에 TMAP_APP_KEY를 설정해주세요.'
     })
   } catch (error) {
     return c.json({ success: false, message: '주소 변환 중 오류가 발생했습니다.' }, 500)
@@ -418,8 +416,8 @@ app.get('/', (c) => {
         <title>고객관리 시스템</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-        <!-- 네이버 지도 API -->
-        <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=t29b9q2500"></script>
+        <!-- T Map API -->
+        <script src="https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=YOUR_TMAP_APP_KEY"></script>
         <!-- SheetJS for Excel file parsing -->
         <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     </head>

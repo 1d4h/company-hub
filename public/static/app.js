@@ -540,7 +540,7 @@ function renderUserMap() {
         
         if (typeof naver !== 'undefined' && naver.maps) {
           console.log('✅ 네이버 지도 API 로드됨, 지도 초기화 시작...')
-          initNaverMap()
+          initTMap()
         } else {
           console.warn('⚠️ 네이버 지도 API를 사용할 수 없습니다')
           showMapFallback()
@@ -614,16 +614,18 @@ function showMapFallback() {
 }
 
 // 네이버 지도 초기화
-function initNaverMap() {
+function initTMap() {
+  console.log('🗺️ T Map 초기화 시작...')
+  
   const mapDiv = document.getElementById('map')
   if (!mapDiv) {
     console.error('❌ 지도 컨테이너를 찾을 수 없습니다')
     return
   }
   
-  // 네이버 맵 API 로드 확인
-  if (typeof naver === 'undefined' || !naver.maps) {
-    console.error('❌ 네이버 맵 API가 로드되지 않았습니다')
+  // T Map API 로드 확인
+  if (typeof Tmapv2 === 'undefined') {
+    console.error('❌ T Map API가 로드되지 않았습니다')
     showMapFallback()
     return
   }
@@ -633,15 +635,11 @@ function initNaverMap() {
     console.log('🔄 기존 지도 제거 중...')
     state.markers.forEach(marker => marker.setMap(null))
     state.markers = []
-    state.map.destroy()
     state.map = null
   }
   
   try {
-    console.log('🗺️ 네이버 지도 초기화 시작...')
-    
-    // 인증 오류 발생 시에도 지도 초기화 시도
-    // 네이버 맵 API는 인증 실패 후에도 기본 기능은 작동할 수 있음
+    console.log('🗺️ T Map 지도 초기화 시작...')
     
     // 서울 중심 좌표
     const centerLat = 37.5665
@@ -651,105 +649,53 @@ function initNaverMap() {
     const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
     console.log(`📍 표시할 고객 수: ${validCustomers.length}`)
     
-    let mapOptions
+    let center, zoom
     if (validCustomers.length > 0) {
       const avgLat = validCustomers.reduce((sum, c) => sum + c.latitude, 0) / validCustomers.length
       const avgLng = validCustomers.reduce((sum, c) => sum + c.longitude, 0) / validCustomers.length
-      
-      mapOptions = {
-        center: new naver.maps.LatLng(avgLat, avgLng),
-        zoom: 13,
-        zoomControl: true,
-        zoomControlOptions: {
-          position: naver.maps.Position.TOP_RIGHT
-        }
-      }
+      center = new Tmapv2.LatLng(avgLat, avgLng)
+      zoom = 15
     } else {
-      mapOptions = {
-        center: new naver.maps.LatLng(centerLat, centerLng),
-        zoom: 11,
-        zoomControl: true,
-        zoomControlOptions: {
-          position: naver.maps.Position.TOP_RIGHT
-        }
-      }
+      center = new Tmapv2.LatLng(centerLat, centerLng)
+      zoom = 13
     }
     
-    // 지도 생성 (DOM이 준비될 때까지 대기)
-    console.log('🗺️ 네이버 지도 초기화 중...', mapDiv)
+    // T Map 생성
+    state.map = new Tmapv2.Map('map', {
+      center: center,
+      width: '100%',
+      height: '100%',
+      zoom: zoom,
+      zoomControl: true,
+      scrollwheel: true
+    })
     
-    // 네이버 맵 API 오류 무시 (CORS, 인증 관련)
-    const originalConsoleError = console.error
-    console.error = function(...args) {
-      const errorMsg = args[0] && typeof args[0] === 'string' ? args[0] : ''
-      // postMessage, 인증 오류 무시
-      if (errorMsg.includes('postMessage') || 
-          errorMsg.includes('Authentication') || 
-          errorMsg.includes('인증')) {
-        console.warn('⚠️ 네이버 맵 API 경고:', errorMsg)
-        return
-      }
-      originalConsoleError.apply(console, args)
-    }
-    
-    // 지도 생성 (인증 실패해도 기본 기능은 작동)
-    state.map = new naver.maps.Map(mapDiv, mapOptions)
-    console.log('✅ 지도 객체 생성 완료:', state.map)
-    
-    // 원래 console.error 복원
-    setTimeout(() => {
-      console.error = originalConsoleError
-    }, 2000)
+    console.log('✅ T Map 객체 생성 완료')
     
     // 고객 마커 추가
     validCustomers.forEach(customer => {
-      const marker = new naver.maps.Marker({
-        position: new naver.maps.LatLng(customer.latitude, customer.longitude),
+      const marker = new Tmapv2.Marker({
+        position: new Tmapv2.LatLng(customer.latitude, customer.longitude),
         map: state.map,
         title: customer.customer_name,
-        icon: {
-          content: `
-            <div class="relative">
-              <div class="bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition flex items-center justify-center" style="min-width: 40px; height: 40px;">
-                <i class="fas fa-map-marker-alt text-lg"></i>
-              </div>
-            </div>
-          `,
-          size: new naver.maps.Size(40, 40),
-          anchor: new naver.maps.Point(20, 40)
-        }
+        icon: 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_r_m_a.png',
+        iconSize: new Tmapv2.Size(24, 38)
       })
       
-      // 마커 클릭 이벤트
-      naver.maps.Event.addListener(marker, 'click', function() {
+      marker.addListener('click', function() {
         showCustomerDetailOnMap(customer)
       })
       
       state.markers.push(marker)
     })
     
-    console.log(`✅ 네이버 지도 초기화 완료: ${validCustomers.length}개의 마커 표시`)
-    
-    // 지도 로드 후 타일 로딩 완료 대기
-    setTimeout(() => {
-      showToast('지도가 로드되었습니다', 'success')
-    }, 500)
+    console.log(`✅ T Map 초기화 완료: ${validCustomers.length}개의 마커 표시`)
+    showToast('지도가 로드되었습니다', 'success')
     
   } catch (error) {
-    console.error('네이버 지도 초기화 오류:', error)
-    
-    // postMessage 오류는 무시하고 지도가 표시되는지 확인
-    if (error.message && error.message.includes('postMessage')) {
-      console.warn('⚠️ postMessage 오류 발생했지만 지도는 정상 작동할 수 있습니다')
-      // 지도 객체가 생성되었다면 성공으로 간주
-      if (state.map) {
-        showToast('지도가 로드되었습니다 (일부 기능 제한)', 'info')
-        return
-      }
-    }
-    
+    console.error('❌ T Map 초기화 오류:', error)
     showMapFallback()
-    showToast('지도 로드 실패: 네이버 API 인증을 확인해주세요', 'error')
+    showToast('지도 로드 실패: T Map API를 확인해주세요', 'error')
   }
 }
 
@@ -1132,8 +1078,8 @@ function showCustomerDetail(customerId) {
   
   // 지도에서 해당 고객 위치로 이동
   if (state.map && customer.latitude && customer.longitude) {
-    state.map.setCenter(new naver.maps.LatLng(customer.latitude, customer.longitude))
-    state.map.setZoom(16)
+    state.map.setCenter(new Tmapv2.LatLng(customer.latitude, customer.longitude))
+    state.map.setZoom(17)
   }
 }
 
@@ -1148,34 +1094,35 @@ function closeCustomerDetail() {
 
 // 네이버 지도 길 안내 (내비게이션 모드)
 function openNavigation(lat, lng, name) {
-  // 네이버 지도 앱 또는 웹 내비게이션으로 연결
-  // 네이버 지도 앱이 설치되어 있으면 앱으로, 없으면 웹으로 연결
-  const navUrl = `nmap://route/public?dlat=${lat}&dlng=${lng}&dname=${encodeURIComponent(name)}&appname=com.customer.management`
-  const webNavUrl = `https://map.naver.com/index.nhn?slng=126.9780&slat=37.5665&stext=현재위치&elng=${lng}&elat=${lat}&pathType=0&showMap=true&etext=${encodeURIComponent(name)}&menu=route`
+  // T Map 앱 또는 웹 내비게이션으로 연결
+  // T Map 앱이 설치되어 있으면 앱으로, 없으면 웹으로 연결
+  const tmapAppUrl = `tmap://route?goalname=${encodeURIComponent(name)}&goalx=${lng}&goaly=${lat}`
+  const tmapWebUrl = `https://apis.openapi.sk.com/tmap/app/routes?appKey=l7xxd0e0d0d0d0d0d0d0d0d0d0d0d0d0&name=${encodeURIComponent(name)}&lon=${lng}&lat=${lat}`
   
   // 모바일 환경 체크
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
   
   if (isMobile) {
-    // 모바일에서는 앱 스킴 시도 후 웹으로 폴백
-    window.location.href = navUrl
+    // 모바일에서는 T Map 앱 스킴 시도
+    window.location.href = tmapAppUrl
     setTimeout(() => {
-      window.open(webNavUrl, '_blank')
-    }, 1000)
+      // 앱이 없으면 T Map 모바일 웹으로 이동
+      window.open(`https://m.tmap.co.kr/tmap2/mobile/route.jsp?name=${encodeURIComponent(name)}&lon=${lng}&lat=${lat}`, '_blank')
+    }, 1500)
   } else {
-    // 데스크톱에서는 바로 웹 내비게이션
-    window.open(webNavUrl, '_blank')
+    // 데스크톱에서는 T Map 웹으로 연결
+    window.open(`https://www.tmap.co.kr/tmap2/mobile/route.jsp?name=${encodeURIComponent(name)}&lon=${lng}&lat=${lat}`, '_blank')
   }
   
-  showToast('길 안내를 시작합니다', 'success')
+  showToast('T Map에서 길 안내를 시작합니다', 'success')
 }
 
-// 네이버 지도에서 검색 (길찾기)
+// T Map에서 검색 (길찾기)
 function openDirections(address) {
-  // 네이버 지도 검색 URL
-  const url = `https://map.naver.com/v5/search/${encodeURIComponent(address)}`
+  // T Map 검색 URL
+  const url = `https://www.tmap.co.kr/tmap2/mobile/search.jsp?name=${encodeURIComponent(address)}`
   window.open(url, '_blank')
-  showToast('네이버 지도에서 주소를 검색합니다', 'info')
+  showToast('T Map에서 주소를 검색합니다', 'info')
 }
 
 // 고객 목록 패널 접기/펼치기
