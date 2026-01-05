@@ -499,12 +499,19 @@ function renderUserMap() {
           <div id="customerDetailContent"></div>
         </div>
         
-        <!-- 고객 목록 사이드 패널 -->
-        <div class="absolute top-4 left-4 bg-white rounded-xl shadow-xl p-4 w-80 max-h-[calc(100vh-120px)] overflow-y-auto z-10">
-          <h3 class="text-lg font-bold text-gray-800 mb-4">
-            <i class="fas fa-users mr-2"></i>고객 목록
-          </h3>
-          <div id="customerList"></div>
+        <!-- 고객 목록 사이드 패널 (접기 가능) -->
+        <div id="customerSidePanel" class="absolute top-4 left-4 bg-white rounded-xl shadow-xl w-80 max-h-[calc(100vh-120px)] z-10 transition-all duration-300">
+          <!-- 접기/펼치기 버튼 -->
+          <button onclick="toggleCustomerPanel()" class="absolute -right-3 top-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg transition z-20">
+            <i id="panelToggleIcon" class="fas fa-chevron-left"></i>
+          </button>
+          
+          <div id="customerPanelContent" class="p-4 overflow-y-auto max-h-[calc(100vh-120px)]">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+              <i class="fas fa-users mr-2"></i>고객 목록
+            </h3>
+            <div id="customerList"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -512,13 +519,16 @@ function renderUserMap() {
   
   loadCustomers().then(() => {
     renderCustomerList()
-    // 네이버 맵 API 로드 시도
-    if (typeof naver !== 'undefined' && naver.maps) {
-      initNaverMap()
-    } else {
-      // 네이버 맵 로드 실패시 대체 UI 표시
-      showMapFallback()
-    }
+    // 네이버 맵 API 로드 시도 (약간의 지연 추가)
+    setTimeout(() => {
+      if (typeof naver !== 'undefined' && naver.maps) {
+        initNaverMap()
+      } else {
+        // 네이버 맵 로드 실패시 대체 UI 표시
+        console.warn('네이버 지도 API를 사용할 수 없습니다')
+        showMapFallback()
+      }
+    }, 300)
   })
 }
 
@@ -626,8 +636,10 @@ function initNaverMap() {
       }
     }
     
-    // 지도 생성
+    // 지도 생성 (DOM이 준비될 때까지 대기)
+    console.log('🗺️ 네이버 지도 초기화 중...', mapDiv)
     state.map = new naver.maps.Map(mapDiv, mapOptions)
+    console.log('✅ 지도 객체 생성 완료:', state.map)
     
     // 고객 마커 추가
     validCustomers.forEach(customer => {
@@ -1091,6 +1103,29 @@ function openDirections(address) {
   showToast('네이버 지도에서 주소를 검색합니다', 'info')
 }
 
+// 고객 목록 패널 접기/펼치기
+function toggleCustomerPanel() {
+  const panel = document.getElementById('customerSidePanel')
+  const content = document.getElementById('customerPanelContent')
+  const icon = document.getElementById('panelToggleIcon')
+  
+  if (!panel || !content || !icon) return
+  
+  const isCollapsed = content.style.display === 'none'
+  
+  if (isCollapsed) {
+    // 펼치기
+    content.style.display = 'block'
+    panel.style.width = '20rem' // w-80
+    icon.className = 'fas fa-chevron-left'
+  } else {
+    // 접기
+    content.style.display = 'none'
+    panel.style.width = '3rem' // 버튼만 보이도록
+    icon.className = 'fas fa-chevron-right'
+  }
+}
+
 // ============================================
 // 초기화
 // ============================================
@@ -1122,3 +1157,4 @@ window.closeCustomerDetail = closeCustomerDetail
 window.openDirections = openDirections
 window.openNavigation = openNavigation
 window.renderAdminDashboard = renderAdminDashboard
+window.toggleCustomerPanel = toggleCustomerPanel
