@@ -640,6 +640,9 @@ function initNaverMap() {
   try {
     console.log('🗺️ 네이버 지도 초기화 시작...')
     
+    // 인증 오류 발생 시에도 지도 초기화 시도
+    // 네이버 맵 API는 인증 실패 후에도 기본 기능은 작동할 수 있음
+    
     // 서울 중심 좌표
     const centerLat = 37.5665
     const centerLng = 126.9780
@@ -675,23 +678,28 @@ function initNaverMap() {
     // 지도 생성 (DOM이 준비될 때까지 대기)
     console.log('🗺️ 네이버 지도 초기화 중...', mapDiv)
     
-    // postMessage 오류 무시 (CORS 관련)
+    // 네이버 맵 API 오류 무시 (CORS, 인증 관련)
     const originalConsoleError = console.error
     console.error = function(...args) {
-      if (args[0] && typeof args[0] === 'string' && args[0].includes('postMessage')) {
-        // postMessage 오류는 무시 (네이버 맵 내부 통신)
+      const errorMsg = args[0] && typeof args[0] === 'string' ? args[0] : ''
+      // postMessage, 인증 오류 무시
+      if (errorMsg.includes('postMessage') || 
+          errorMsg.includes('Authentication') || 
+          errorMsg.includes('인증')) {
+        console.warn('⚠️ 네이버 맵 API 경고:', errorMsg)
         return
       }
       originalConsoleError.apply(console, args)
     }
     
+    // 지도 생성 (인증 실패해도 기본 기능은 작동)
     state.map = new naver.maps.Map(mapDiv, mapOptions)
     console.log('✅ 지도 객체 생성 완료:', state.map)
     
     // 원래 console.error 복원
     setTimeout(() => {
       console.error = originalConsoleError
-    }, 1000)
+    }, 2000)
     
     // 고객 마커 추가
     validCustomers.forEach(customer => {
