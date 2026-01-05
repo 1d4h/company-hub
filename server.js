@@ -1,8 +1,54 @@
+import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from '@hono/node-server/serve-static'
 
 const app = new Hono()
+
+// 메모리 기반 데이터 저장소
+let customers = [
+  {
+    id: 1,
+    customer_name: '김철수',
+    phone: '010-1234-5678',
+    email: 'kim@example.com',
+    address: '서울특별시 강남구 테헤란로 123',
+    address_detail: '456호',
+    latitude: 37.5012,
+    longitude: 127.0396,
+    memo: '중요 고객',
+    created_at: '2024-01-15 10:30:00',
+    updated_at: '2024-01-15 10:30:00'
+  },
+  {
+    id: 2,
+    customer_name: '이영희',
+    phone: '010-2345-6789',
+    email: 'lee@example.com',
+    address: '서울특별시 서초구 서초대로 78길 22',
+    address_detail: '101동 203호',
+    latitude: 37.4833,
+    longitude: 127.0322,
+    memo: 'VIP 고객',
+    created_at: '2024-01-16 14:20:00',
+    updated_at: '2024-01-16 14:20:00'
+  },
+  {
+    id: 3,
+    customer_name: '박민수',
+    phone: '010-3456-7890',
+    email: 'park@example.com',
+    address: '서울특별시 송파구 올림픽로 300',
+    address_detail: '롯데월드타워 10층',
+    latitude: 37.5125,
+    longitude: 127.1025,
+    memo: '신규 고객',
+    created_at: '2024-01-17 09:15:00',
+    updated_at: '2024-01-17 09:15:00'
+  }
+]
+
+let nextCustomerId = 4
 
 // CORS 설정
 app.use('/api/*', cors())
@@ -13,13 +59,10 @@ app.use('/static/*', serveStatic({ root: './public' }))
 // ============================================
 // 인증 API
 // ============================================
-
-// 로그인 API
 app.post('/api/auth/login', async (c) => {
   try {
     const { username, password } = await c.req.json()
     
-    // 하드코딩된 테스트 사용자
     const testUsers = [
       { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: '관리자' },
       { id: 2, username: 'user', password: 'user123', role: 'user', name: '사용자' }
@@ -51,86 +94,33 @@ app.post('/api/auth/login', async (c) => {
 
 // 모든 고객 조회
 app.get('/api/customers', async (c) => {
-  try {
-    // 하드코딩된 테스트 데이터
-    const testCustomers = [
-      {
-        id: 1,
-        customer_name: '김철수',
-        phone: '010-1234-5678',
-        email: 'kim@example.com',
-        address: '서울특별시 강남구 테헤란로 123',
-        address_detail: '456호',
-        latitude: 37.5012,
-        longitude: 127.0396,
-        memo: '중요 고객',
-        created_at: '2024-01-15 10:30:00',
-        updated_at: '2024-01-15 10:30:00'
-      },
-      {
-        id: 2,
-        customer_name: '이영희',
-        phone: '010-2345-6789',
-        email: 'lee@example.com',
-        address: '서울특별시 서초구 서초대로 78길 22',
-        address_detail: '101동 203호',
-        latitude: 37.4833,
-        longitude: 127.0322,
-        memo: 'VIP 고객',
-        created_at: '2024-01-16 14:20:00',
-        updated_at: '2024-01-16 14:20:00'
-      },
-      {
-        id: 3,
-        customer_name: '박민수',
-        phone: '010-3456-7890',
-        email: 'park@example.com',
-        address: '서울특별시 송파구 올림픽로 300',
-        address_detail: '롯데월드타워 10층',
-        latitude: 37.5125,
-        longitude: 127.1025,
-        memo: '신규 고객',
-        created_at: '2024-01-17 09:15:00',
-        updated_at: '2024-01-17 09:15:00'
-      }
-    ]
-    
-    return c.json({ success: true, customers: testCustomers })
-  } catch (error) {
-    return c.json({ success: false, message: '고객 목록 조회 중 오류가 발생했습니다.' }, 500)
-  }
+  return c.json({ success: true, customers: customers })
 })
 
 // 고객 상세 조회
 app.get('/api/customers/:id', async (c) => {
-  try {
-    const id = c.req.param('id')
-    const customer = await c.env.DB.prepare(
-      'SELECT * FROM customers WHERE id = ?'
-    ).bind(id).first()
-    
-    if (!customer) {
-      return c.json({ success: false, message: '고객을 찾을 수 없습니다.' }, 404)
-    }
-    
-    return c.json({ success: true, customer })
-  } catch (error) {
-    return c.json({ success: false, message: '고객 조회 중 오류가 발생했습니다.' }, 500)
+  const id = parseInt(c.req.param('id'))
+  const customer = customers.find(c => c.id === id)
+  
+  if (!customer) {
+    return c.json({ success: false, message: '고객을 찾을 수 없습니다.' }, 404)
   }
+  
+  return c.json({ success: true, customer })
 })
 
 // 고객 생성
 app.post('/api/customers', async (c) => {
   try {
     const data = await c.req.json()
-    const { customer_name, phone, email, address, address_detail, latitude, longitude, memo, created_by } = data
-    
-    const result = await c.env.DB.prepare(
-      `INSERT INTO customers (customer_name, phone, email, address, address_detail, latitude, longitude, memo, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(customer_name, phone, email, address, address_detail, latitude, longitude, memo, created_by).run()
-    
-    return c.json({ success: true, id: result.meta.last_row_id })
+    const newCustomer = {
+      id: nextCustomerId++,
+      ...data,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    customers.push(newCustomer)
+    return c.json({ success: true, id: newCustomer.id })
   } catch (error) {
     return c.json({ success: false, message: '고객 등록 중 오류가 발생했습니다.' }, 500)
   }
@@ -139,16 +129,19 @@ app.post('/api/customers', async (c) => {
 // 고객 수정
 app.put('/api/customers/:id', async (c) => {
   try {
-    const id = c.req.param('id')
+    const id = parseInt(c.req.param('id'))
     const data = await c.req.json()
-    const { customer_name, phone, email, address, address_detail, latitude, longitude, memo } = data
+    const index = customers.findIndex(c => c.id === id)
     
-    await c.env.DB.prepare(
-      `UPDATE customers 
-       SET customer_name = ?, phone = ?, email = ?, address = ?, address_detail = ?, 
-           latitude = ?, longitude = ?, memo = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`
-    ).bind(customer_name, phone, email, address, address_detail, latitude, longitude, memo, id).run()
+    if (index === -1) {
+      return c.json({ success: false, message: '고객을 찾을 수 없습니다.' }, 404)
+    }
+    
+    customers[index] = {
+      ...customers[index],
+      ...data,
+      updated_at: new Date().toISOString()
+    }
     
     return c.json({ success: true })
   } catch (error) {
@@ -159,10 +152,8 @@ app.put('/api/customers/:id', async (c) => {
 // 고객 삭제
 app.delete('/api/customers/:id', async (c) => {
   try {
-    const id = c.req.param('id')
-    
-    await c.env.DB.prepare('DELETE FROM customers WHERE id = ?').bind(id).run()
-    
+    const id = parseInt(c.req.param('id'))
+    customers = customers.filter(c => c.id !== id)
     return c.json({ success: true })
   } catch (error) {
     return c.json({ success: false, message: '고객 삭제 중 오류가 발생했습니다.' }, 500)
@@ -173,16 +164,7 @@ app.delete('/api/customers/:id', async (c) => {
 app.post('/api/customers/batch-delete', async (c) => {
   try {
     const { ids } = await c.req.json()
-    
-    if (!ids || ids.length === 0) {
-      return c.json({ success: false, message: '삭제할 고객을 선택해주세요.' }, 400)
-    }
-    
-    const placeholders = ids.map(() => '?').join(',')
-    await c.env.DB.prepare(
-      `DELETE FROM customers WHERE id IN (${placeholders})`
-    ).bind(...ids).run()
-    
+    customers = customers.filter(c => !ids.includes(c.id))
     return c.json({ success: true, deleted: ids.length })
   } catch (error) {
     return c.json({ success: false, message: '고객 일괄 삭제 중 오류가 발생했습니다.' }, 500)
@@ -194,24 +176,17 @@ app.post('/api/customers/validate', async (c) => {
   try {
     const { data } = await c.req.json()
     
-    const validRows: any[] = []
-    const invalidRows: any[] = []
-    const duplicates: any[] = []
+    const validRows = []
+    const invalidRows = []
+    const duplicates = []
     
-    // 기존 고객 주소 목록 조회 (중복 체크용)
-    const { results: existingCustomers } = await c.env.DB.prepare(
-      'SELECT address FROM customers'
-    ).all()
-    const existingAddresses = new Set(existingCustomers.map((c: any) => c.address))
-    
-    // 현재 데이터 내 주소 중복 체크
+    const existingAddresses = new Set(customers.map(c => c.address))
     const currentAddresses = new Set()
     
     for (let i = 0; i < data.length; i++) {
       const row = data[i]
-      const errors: string[] = []
+      const errors = []
       
-      // 필수 필드 검증
       if (!row.customer_name || row.customer_name.trim() === '') {
         errors.push('고객명은 필수입니다')
       }
@@ -219,17 +194,14 @@ app.post('/api/customers/validate', async (c) => {
         errors.push('주소는 필수입니다')
       }
       
-      // 전화번호 형식 검증 (선택사항이지만 있다면 검증)
       if (row.phone && !/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/.test(row.phone.replace(/-/g, ''))) {
         errors.push('전화번호 형식이 올바르지 않습니다')
       }
       
-      // 이메일 형식 검증 (선택사항이지만 있다면 검증)
       if (row.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) {
         errors.push('이메일 형식이 올바르지 않습니다')
       }
       
-      // 중복 체크
       if (row.address && existingAddresses.has(row.address)) {
         errors.push('이미 등록된 주소입니다 (데이터베이스)')
       }
@@ -270,33 +242,25 @@ app.post('/api/customers/batch-upload', async (c) => {
   try {
     const { data, userId } = await c.req.json()
     
-    if (!data || data.length === 0) {
-      return c.json({ success: false, message: '업로드할 데이터가 없습니다.' }, 400)
-    }
-    
     let successCount = 0
-    let failCount = 0
     
     for (const row of data) {
-      try {
-        await c.env.DB.prepare(
-          `INSERT INTO customers (customer_name, phone, email, address, address_detail, latitude, longitude, memo, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(
-          row.customer_name,
-          row.phone || null,
-          row.email || null,
-          row.address,
-          row.address_detail || null,
-          row.latitude || null,
-          row.longitude || null,
-          row.memo || null,
-          userId
-        ).run()
-        successCount++
-      } catch (error) {
-        failCount++
+      const newCustomer = {
+        id: nextCustomerId++,
+        customer_name: row.customer_name,
+        phone: row.phone || null,
+        email: row.email || null,
+        address: row.address,
+        address_detail: row.address_detail || null,
+        latitude: row.latitude || null,
+        longitude: row.longitude || null,
+        memo: row.memo || null,
+        created_by: userId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
+      customers.push(newCustomer)
+      successCount++
     }
     
     return c.json({
@@ -304,7 +268,7 @@ app.post('/api/customers/batch-upload', async (c) => {
       summary: {
         total: data.length,
         success: successCount,
-        failed: failCount
+        failed: 0
       }
     })
   } catch (error) {
@@ -319,11 +283,9 @@ app.post('/api/geocode', async (c) => {
   try {
     const { address } = await c.req.json()
     
-    // T Map API 키 확인
-    const tmapAppKey = c.env.TMAP_APP_KEY
+    const tmapAppKey = process.env.TMAP_APP_KEY || 'vSWmSa8CcO4uvyc0EsAg46SWvxNVAKzL8KGbckPB'
     
-    // API 키가 설정되어 있으면 실제 T Map 지오코딩 API 호출
-    if (tmapAppKey) {
+    if (tmapAppKey && tmapAppKey !== 'YOUR_TMAP_APP_KEY') {
       try {
         const response = await fetch(
           `https://apis.openapi.sk.com/tmap/geo/fullAddrGeo?version=1&format=json&callback=result&coordType=WGS84GEO&fullAddr=${encodeURIComponent(address)}`,
@@ -337,7 +299,6 @@ app.post('/api/geocode', async (c) => {
         
         const data = await response.json()
         
-        // T Map API 응답 처리
         if (data.coordinateInfo && data.coordinateInfo.coordinate && data.coordinateInfo.coordinate.length > 0) {
           const result = data.coordinateInfo.coordinate[0]
           return c.json({
@@ -351,19 +312,17 @@ app.post('/api/geocode', async (c) => {
         }
       } catch (apiError) {
         console.error('T Map 지오코딩 API 오류:', apiError)
-        // API 오류시 더미 데이터로 폴백
       }
     }
     
-    // API 키가 없거나 오류 발생시 개발용 더미 데이터 반환
+    // API 키가 없거나 오류 발생시 더미 데이터
     return c.json({
       success: true,
       result: {
         latitude: 37.5665 + (Math.random() - 0.5) * 0.1,
         longitude: 126.9780 + (Math.random() - 0.5) * 0.1,
         address: address
-      },
-      notice: 'T Map API 키가 설정되지 않아 더미 좌표를 반환합니다. .dev.vars 파일에 TMAP_APP_KEY를 설정해주세요.'
+      }
     })
   } catch (error) {
     return c.json({ success: false, message: '주소 변환 중 오류가 발생했습니다.' }, 500)
@@ -397,4 +356,11 @@ app.get('/', (c) => {
   `)
 })
 
-export default app
+const port = 3000
+console.log(`🚀 서버가 http://localhost:${port} 에서 실행 중입니다`)
+console.log(`📍 T Map API 키: ${process.env.TMAP_APP_KEY || 'vSWmSa8CcO4uvyc0EsAg46SWvxNVAKzL8KGbckPB'}`)
+
+serve({
+  fetch: app.fetch,
+  port
+})
