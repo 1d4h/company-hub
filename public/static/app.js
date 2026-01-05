@@ -437,7 +437,7 @@ function renderUserMap() {
         </div>
       </header>
       
-      <!-- 지도 컨테이너 -->
+      <!-- 지도/목록 컨테이너 -->
       <div class="flex-1 relative">
         <div id="map" class="w-full h-full"></div>
         
@@ -451,12 +451,27 @@ function renderUserMap() {
           </div>
           <div id="customerDetailContent"></div>
         </div>
+        
+        <!-- 고객 목록 사이드 패널 -->
+        <div class="absolute top-4 left-4 bg-white rounded-xl shadow-xl p-4 w-80 max-h-[calc(100vh-120px)] overflow-y-auto z-10">
+          <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-users mr-2"></i>고객 목록
+          </h3>
+          <div id="customerList"></div>
+        </div>
       </div>
     </div>
   `
   
   loadCustomers().then(() => {
-    initNaverMap()
+    renderCustomerList()
+    // 네이버 맵 API 로드 시도
+    if (typeof naver !== 'undefined' && naver.maps) {
+      initNaverMap()
+    } else {
+      // 네이버 맵 로드 실패시 대체 UI 표시
+      showMapFallback()
+    }
   })
 }
 
@@ -466,60 +481,105 @@ function renderCustomerList() {
   if (!listEl) return
   
   if (state.customers.length === 0) {
-    listEl.innerHTML = '<p class="text-gray-500">등록된 고객이 없습니다</p>'
+    listEl.innerHTML = '<p class="text-gray-500 text-center py-4">등록된 고객이 없습니다</p>'
     return
   }
   
   listEl.innerHTML = state.customers.map(customer => `
-    <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition" onclick="showCustomerDetail(${customer.id})">
-      <p class="font-semibold text-gray-800">${customer.customer_name}</p>
-      <p class="text-sm text-gray-600 truncate">${customer.address}</p>
+    <div class="p-3 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-2 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <p class="font-semibold text-gray-800">${customer.customer_name}</p>
+          <p class="text-sm text-gray-600 truncate mt-1">${customer.address}</p>
+          ${customer.phone ? `<p class="text-xs text-gray-500 mt-1"><i class="fas fa-phone mr-1"></i>${customer.phone}</p>` : ''}
+        </div>
+        <div class="ml-2">
+          ${customer.latitude && customer.longitude 
+            ? '<span class="text-green-500"><i class="fas fa-map-marker-alt"></i></span>' 
+            : '<span class="text-gray-300"><i class="fas fa-map-marker-alt"></i></span>'}
+        </div>
+      </div>
     </div>
   `).join('')
 }
 
-// 네이버 지도 초기화
-function initNaverMap() {
-  if (typeof naver === 'undefined' || !naver.maps) {
-    console.error('네이버 맵 API가 로드되지 않았습니다')
-    const mapDiv = document.getElementById('map')
-    if (mapDiv) {
-      mapDiv.innerHTML = `
-        <div class="w-full h-full flex items-center justify-center bg-gray-100">
-          <div class="text-center p-8">
-            <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4"></i>
-            <p class="text-xl text-gray-800 font-semibold mb-2">네이버 맵 API 로드 실패</p>
-            <p class="text-gray-600">Client ID를 확인해주세요</p>
-          </div>
-        </div>
-      `
-    }
-    return
-  }
-  
+// 지도 로드 실패시 대체 UI
+function showMapFallback() {
   const mapDiv = document.getElementById('map')
   if (!mapDiv) return
   
-  // 서울 중심 좌표
-  const centerLat = 37.5665
-  const centerLng = 126.9780
+  mapDiv.innerHTML = `
+    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
+      <div class="text-center p-8 max-w-md">
+        <div class="mb-6">
+          <i class="fas fa-map-marked-alt text-6xl text-blue-400 mb-4"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-3">네이버 지도 연동 대기 중</h2>
+        <p class="text-gray-600 mb-4">
+          네이버 클라우드 플랫폼에서 Web 서비스 URL 등록을 확인해주세요.
+        </p>
+        <div class="bg-white rounded-lg p-4 mb-4 text-left shadow-sm">
+          <p class="text-sm font-semibold text-gray-700 mb-2">등록 필요 URL:</p>
+          <code class="text-xs bg-gray-100 px-2 py-1 rounded block break-all text-blue-600">
+            https://3000-irn3f4j2vutvnwvbf7bwh-cc2fbc16.sandbox.novita.ai
+          </code>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">
+          좌측 고객 목록에서 고객을 선택하여 상세 정보를 확인하고 길안내를 이용할 수 있습니다.
+        </p>
+        <button onclick="location.reload()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+          <i class="fas fa-sync-alt mr-2"></i>새로고침
+        </button>
+      </div>
+    </div>
+  `
+}
+
+// 네이버 지도 초기화
+function initNaverMap() {
+  const mapDiv = document.getElementById('map')
+  if (!mapDiv) return
   
-  // 고객 좌표의 중심점 계산
-  const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
-  if (validCustomers.length > 0) {
-    const avgLat = validCustomers.reduce((sum, c) => sum + c.latitude, 0) / validCustomers.length
-    const avgLng = validCustomers.reduce((sum, c) => sum + c.longitude, 0) / validCustomers.length
+  // 네이버 맵 API 로드 확인
+  if (typeof naver === 'undefined' || !naver.maps) {
+    console.error('네이버 맵 API가 로드되지 않았습니다')
+    showMapFallback()
+    return
+  }
+  
+  try {
+    // 서울 중심 좌표
+    const centerLat = 37.5665
+    const centerLng = 126.9780
     
-    // 지도 초기화
-    const mapOptions = {
-      center: new naver.maps.LatLng(avgLat, avgLng),
-      zoom: 13,
-      zoomControl: true,
-      zoomControlOptions: {
-        position: naver.maps.Position.TOP_RIGHT
+    // 고객 좌표의 중심점 계산
+    const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
+    
+    let mapOptions
+    if (validCustomers.length > 0) {
+      const avgLat = validCustomers.reduce((sum, c) => sum + c.latitude, 0) / validCustomers.length
+      const avgLng = validCustomers.reduce((sum, c) => sum + c.longitude, 0) / validCustomers.length
+      
+      mapOptions = {
+        center: new naver.maps.LatLng(avgLat, avgLng),
+        zoom: 13,
+        zoomControl: true,
+        zoomControlOptions: {
+          position: naver.maps.Position.TOP_RIGHT
+        }
+      }
+    } else {
+      mapOptions = {
+        center: new naver.maps.LatLng(centerLat, centerLng),
+        zoom: 11,
+        zoomControl: true,
+        zoomControlOptions: {
+          position: naver.maps.Position.TOP_RIGHT
+        }
       }
     }
     
+    // 지도 생성
     state.map = new naver.maps.Map(mapDiv, mapOptions)
     
     // 고객 마커 추가
@@ -531,8 +591,8 @@ function initNaverMap() {
         icon: {
           content: `
             <div class="relative">
-              <div class="bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition">
-                <i class="fas fa-map-marker-alt"></i>
+              <div class="bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition flex items-center justify-center" style="min-width: 40px; height: 40px;">
+                <i class="fas fa-map-marker-alt text-lg"></i>
               </div>
             </div>
           `,
@@ -549,20 +609,13 @@ function initNaverMap() {
       state.markers.push(marker)
     })
     
-    console.log(`지도 초기화 완료: ${validCustomers.length}개의 마커 표시`)
-  } else {
-    // 고객이 없거나 좌표가 없는 경우 기본 서울 지도
-    const mapOptions = {
-      center: new naver.maps.LatLng(centerLat, centerLng),
-      zoom: 11,
-      zoomControl: true,
-      zoomControlOptions: {
-        position: naver.maps.Position.TOP_RIGHT
-      }
-    }
+    console.log(`✅ 네이버 지도 초기화 완료: ${validCustomers.length}개의 마커 표시`)
+    showToast('지도가 로드되었습니다', 'success')
     
-    state.map = new naver.maps.Map(mapDiv, mapOptions)
-    console.log('지도 초기화 완료: 고객 데이터 없음')
+  } catch (error) {
+    console.error('네이버 지도 초기화 오류:', error)
+    showMapFallback()
+    showToast('지도 로드 실패: 네이버 API 인증을 확인해주세요', 'error')
   }
 }
 
