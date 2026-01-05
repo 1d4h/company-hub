@@ -177,8 +177,8 @@ git commit -m "메시지"      # 커밋
 4. **프로젝트 루트**에 `.dev.vars` 파일 수정:
 
 ```env
-NAVER_MAP_CLIENT_ID=발급받은_Client_ID
-NAVER_MAP_CLIENT_SECRET=발급받은_Client_Secret
+NAVER_MAP_CLIENT_ID=t29b9q2500
+NAVER_MAP_CLIENT_SECRET=fksVF6vd13oPBjDsCGVutacgfFjOsy7AIRTtSJsn
 ```
 
 5. `src/index.tsx` 파일의 네이버 맵 스크립트 URL 수정:

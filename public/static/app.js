@@ -439,20 +439,10 @@ function renderUserMap() {
       
       <!-- 지도 컨테이너 -->
       <div class="flex-1 relative">
-        <div id="map" class="w-full h-full bg-gray-200 flex items-center justify-center">
-          <div class="text-center">
-            <i class="fas fa-map text-6xl text-gray-400 mb-4"></i>
-            <p class="text-xl text-gray-600 font-semibold">네이버 지도 API 연동 필요</p>
-            <p class="text-gray-500 mt-2">네이버 클라우드 플랫폼에서 API 키를 발급받아주세요</p>
-            <div class="mt-6 p-4 bg-white rounded-lg shadow-md inline-block text-left">
-              <p class="font-semibold mb-2">임시 고객 목록:</p>
-              <div id="customerList" class="space-y-2 max-h-96 overflow-y-auto"></div>
-            </div>
-          </div>
-        </div>
+        <div id="map" class="w-full h-full"></div>
         
         <!-- 고객 상세 정보 패널 -->
-        <div id="customerDetailPanel" class="hidden absolute top-4 right-4 bg-white rounded-xl shadow-xl p-6 w-80 max-h-[calc(100vh-120px)] overflow-y-auto">
+        <div id="customerDetailPanel" class="hidden absolute top-4 right-4 bg-white rounded-xl shadow-xl p-6 w-80 max-h-[calc(100vh-120px)] overflow-y-auto z-10">
           <div class="flex justify-between items-start mb-4">
             <h3 class="text-lg font-bold text-gray-800">고객 상세 정보</h3>
             <button onclick="closeCustomerDetail()" class="text-gray-500 hover:text-gray-700">
@@ -466,9 +456,7 @@ function renderUserMap() {
   `
   
   loadCustomers().then(() => {
-    renderCustomerList()
-    // 실제 네이버 맵 API가 있다면 여기서 지도 초기화
-    // initNaverMap()
+    initNaverMap()
   })
 }
 
@@ -488,6 +476,94 @@ function renderCustomerList() {
       <p class="text-sm text-gray-600 truncate">${customer.address}</p>
     </div>
   `).join('')
+}
+
+// 네이버 지도 초기화
+function initNaverMap() {
+  if (typeof naver === 'undefined' || !naver.maps) {
+    console.error('네이버 맵 API가 로드되지 않았습니다')
+    const mapDiv = document.getElementById('map')
+    if (mapDiv) {
+      mapDiv.innerHTML = `
+        <div class="w-full h-full flex items-center justify-center bg-gray-100">
+          <div class="text-center p-8">
+            <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4"></i>
+            <p class="text-xl text-gray-800 font-semibold mb-2">네이버 맵 API 로드 실패</p>
+            <p class="text-gray-600">Client ID를 확인해주세요</p>
+          </div>
+        </div>
+      `
+    }
+    return
+  }
+  
+  const mapDiv = document.getElementById('map')
+  if (!mapDiv) return
+  
+  // 서울 중심 좌표
+  const centerLat = 37.5665
+  const centerLng = 126.9780
+  
+  // 고객 좌표의 중심점 계산
+  const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
+  if (validCustomers.length > 0) {
+    const avgLat = validCustomers.reduce((sum, c) => sum + c.latitude, 0) / validCustomers.length
+    const avgLng = validCustomers.reduce((sum, c) => sum + c.longitude, 0) / validCustomers.length
+    
+    // 지도 초기화
+    const mapOptions = {
+      center: new naver.maps.LatLng(avgLat, avgLng),
+      zoom: 13,
+      zoomControl: true,
+      zoomControlOptions: {
+        position: naver.maps.Position.TOP_RIGHT
+      }
+    }
+    
+    state.map = new naver.maps.Map(mapDiv, mapOptions)
+    
+    // 고객 마커 추가
+    validCustomers.forEach(customer => {
+      const marker = new naver.maps.Marker({
+        position: new naver.maps.LatLng(customer.latitude, customer.longitude),
+        map: state.map,
+        title: customer.customer_name,
+        icon: {
+          content: `
+            <div class="relative">
+              <div class="bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition">
+                <i class="fas fa-map-marker-alt"></i>
+              </div>
+            </div>
+          `,
+          size: new naver.maps.Size(40, 40),
+          anchor: new naver.maps.Point(20, 40)
+        }
+      })
+      
+      // 마커 클릭 이벤트
+      naver.maps.Event.addListener(marker, 'click', function() {
+        showCustomerDetailOnMap(customer)
+      })
+      
+      state.markers.push(marker)
+    })
+    
+    console.log(`지도 초기화 완료: ${validCustomers.length}개의 마커 표시`)
+  } else {
+    // 고객이 없거나 좌표가 없는 경우 기본 서울 지도
+    const mapOptions = {
+      center: new naver.maps.LatLng(centerLat, centerLng),
+      zoom: 11,
+      zoomControl: true,
+      zoomControlOptions: {
+        position: naver.maps.Position.TOP_RIGHT
+      }
+    }
+    
+    state.map = new naver.maps.Map(mapDiv, mapOptions)
+    console.log('지도 초기화 완료: 고객 데이터 없음')
+  }
 }
 
 // 대시보드 통계 업데이트
@@ -794,7 +870,7 @@ function showCustomerDetail(customerId) {
       <div>
         <p class="text-sm text-gray-600">위치 정보</p>
         ${customer.latitude && customer.longitude 
-          ? `<p class="text-gray-800">위도: ${customer.latitude}, 경도: ${customer.longitude}</p>`
+          ? `<p class="text-gray-800">위도: ${customer.latitude.toFixed(4)}, 경도: ${customer.longitude.toFixed(4)}</p>`
           : '<p class="text-gray-500">미등록</p>'}
       </div>
       
@@ -805,26 +881,67 @@ function showCustomerDetail(customerId) {
       </div>
       ` : ''}
       
-      <div class="pt-4 border-t">
-        <button onclick="openDirections('${customer.address}')" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          <i class="fas fa-directions mr-2"></i>길찾기
+      <div class="pt-4 border-t space-y-2">
+        ${customer.latitude && customer.longitude ? `
+        <button onclick="openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+          <i class="fas fa-route mr-2"></i>길 안내
+        </button>
+        ` : ''}
+        <button onclick="openDirections('${customer.address.replace(/'/g, "\\'")}')" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+          <i class="fas fa-search-location mr-2"></i>네이버 지도에서 보기
         </button>
       </div>
     </div>
   `
   
   panel.classList.remove('hidden')
+  
+  // 지도에서 해당 고객 위치로 이동
+  if (state.map && customer.latitude && customer.longitude) {
+    state.map.setCenter(new naver.maps.LatLng(customer.latitude, customer.longitude))
+    state.map.setZoom(16)
+  }
+}
+
+// 지도에서 고객 상세정보 표시 (마커 클릭시)
+function showCustomerDetailOnMap(customer) {
+  showCustomerDetail(customer.id)
 }
 
 function closeCustomerDetail() {
   document.getElementById('customerDetailPanel').classList.add('hidden')
 }
 
+// 네이버 지도 길 안내 (내비게이션 모드)
+function openNavigation(lat, lng, name) {
+  // 네이버 지도 앱 또는 웹 내비게이션으로 연결
+  // 네이버 지도 앱이 설치되어 있으면 앱으로, 없으면 웹으로 연결
+  const navUrl = `nmap://route/public?dlat=${lat}&dlng=${lng}&dname=${encodeURIComponent(name)}&appname=com.customer.management`
+  const webNavUrl = `https://map.naver.com/index.nhn?slng=126.9780&slat=37.5665&stext=현재위치&elng=${lng}&elat=${lat}&pathType=0&showMap=true&etext=${encodeURIComponent(name)}&menu=route`
+  
+  // 모바일 환경 체크
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+  
+  if (isMobile) {
+    // 모바일에서는 앱 스킴 시도 후 웹으로 폴백
+    window.location.href = navUrl
+    setTimeout(() => {
+      window.open(webNavUrl, '_blank')
+    }, 1000)
+  } else {
+    // 데스크톱에서는 바로 웹 내비게이션
+    window.open(webNavUrl, '_blank')
+  }
+  
+  showToast('길 안내를 시작합니다', 'success')
+}
+
+// 네이버 지도에서 검색 (길찾기)
 function openDirections(address) {
-  // 네이버 지도 길찾기 URL
+  // 네이버 지도 검색 URL
   const url = `https://map.naver.com/v5/search/${encodeURIComponent(address)}`
   window.open(url, '_blank')
-  showToast('새 창에서 길찾기를 엽니다', 'info')
+  showToast('네이버 지도에서 주소를 검색합니다', 'info')
 }
 
 // ============================================
@@ -852,6 +969,8 @@ window.closeUploadModal = closeUploadModal
 window.handleFileSelect = handleFileSelect
 window.confirmUpload = confirmUpload
 window.showCustomerDetail = showCustomerDetail
+window.showCustomerDetailOnMap = showCustomerDetailOnMap
 window.closeCustomerDetail = closeCustomerDetail
 window.openDirections = openDirections
+window.openNavigation = openNavigation
 window.renderAdminDashboard = renderAdminDashboard

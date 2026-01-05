@@ -287,7 +287,7 @@ app.post('/api/geocode', async (c) => {
     const clientSecret = c.env.NAVER_MAP_CLIENT_SECRET
     
     // API 키가 설정되어 있으면 실제 네이버 지오코딩 API 호출
-    if (clientId && clientSecret && clientId !== 'your_client_id_here') {
+    if (clientId && clientSecret && clientId !== 't29b9q2500') {
       try {
         const response = await fetch(
           `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`,
@@ -347,8 +347,8 @@ app.get('/', (c) => {
         <title>고객관리 시스템</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-        <!-- 네이버 지도 API (실제 사용시 발급받은 Client ID로 교체) -->
-        <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=YOUR_CLIENT_ID"></script>
+        <!-- 네이버 지도 API -->
+        <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=t29b9q2500"></script>
     </head>
     <body class="bg-gray-50">
         <div id="app"></div>
