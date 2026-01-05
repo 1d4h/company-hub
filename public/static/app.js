@@ -501,34 +501,55 @@ function renderUserMap() {
         
         <!-- 고객 목록 사이드 패널 (접기 가능) -->
         <div id="customerSidePanel" class="absolute top-4 left-4 bg-white rounded-xl shadow-xl w-80 max-h-[calc(100vh-120px)] z-10 transition-all duration-300">
-          <!-- 접기/펼치기 버튼 -->
-          <button onclick="toggleCustomerPanel()" class="absolute -right-3 top-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg transition z-20">
-            <i id="panelToggleIcon" class="fas fa-chevron-left"></i>
-          </button>
-          
-          <div id="customerPanelContent" class="p-4 overflow-y-auto max-h-[calc(100vh-120px)]">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">
-              <i class="fas fa-users mr-2"></i>고객 목록
-            </h3>
-            <div id="customerList"></div>
+          <div class="p-4">
+            <!-- 타이틀 헤더 (항상 표시) -->
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                <i class="fas fa-users mr-2"></i>고객 목록
+              </h3>
+              <!-- 접기/펼치기 버튼 -->
+              <button onclick="toggleCustomerPanel()" class="text-blue-600 hover:text-blue-800 transition">
+                <i id="panelToggleIcon" class="fas fa-chevron-left text-xl"></i>
+              </button>
+            </div>
+            
+            <!-- 고객 목록 콘텐츠 (접기 가능) -->
+            <div id="customerListContent" class="overflow-y-auto" style="max-height: calc(100vh - 200px);">
+              <div id="customerList"></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   `
   
+  // 먼저 고객 데이터 로드
   loadCustomers().then(() => {
     renderCustomerList()
-    // 네이버 맵 API 로드 시도 (약간의 지연 추가)
-    setTimeout(() => {
-      if (typeof naver !== 'undefined' && naver.maps) {
-        initNaverMap()
-      } else {
-        // 네이버 맵 로드 실패시 대체 UI 표시
-        console.warn('네이버 지도 API를 사용할 수 없습니다')
-        showMapFallback()
-      }
-    }, 300)
+    
+    // DOM이 완전히 렌더링될 때까지 대기
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // 네이버 맵 API 로드 시도
+        const mapDiv = document.getElementById('mapContainer')
+        if (!mapDiv) {
+          console.error('지도 컨테이너를 찾을 수 없습니다')
+          showMapFallback()
+          return
+        }
+        
+        if (typeof naver !== 'undefined' && naver.maps) {
+          console.log('✅ 네이버 지도 API 로드됨, 지도 초기화 시작...')
+          initNaverMap()
+        } else {
+          console.warn('⚠️ 네이버 지도 API를 사용할 수 없습니다')
+          showMapFallback()
+        }
+      })
+    })
+  }).catch(error => {
+    console.error('고객 데이터 로드 실패:', error)
+    showMapFallback()
   })
 }
 
@@ -595,22 +616,37 @@ function showMapFallback() {
 // 네이버 지도 초기화
 function initNaverMap() {
   const mapDiv = document.getElementById('map')
-  if (!mapDiv) return
+  if (!mapDiv) {
+    console.error('❌ 지도 컨테이너를 찾을 수 없습니다')
+    return
+  }
   
   // 네이버 맵 API 로드 확인
   if (typeof naver === 'undefined' || !naver.maps) {
-    console.error('네이버 맵 API가 로드되지 않았습니다')
+    console.error('❌ 네이버 맵 API가 로드되지 않았습니다')
     showMapFallback()
     return
   }
   
+  // 기존 맵 제거 (중복 초기화 방지)
+  if (state.map) {
+    console.log('🔄 기존 지도 제거 중...')
+    state.markers.forEach(marker => marker.setMap(null))
+    state.markers = []
+    state.map.destroy()
+    state.map = null
+  }
+  
   try {
+    console.log('🗺️ 네이버 지도 초기화 시작...')
+    
     // 서울 중심 좌표
     const centerLat = 37.5665
     const centerLng = 126.9780
     
     // 고객 좌표의 중심점 계산
     const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
+    console.log(`📍 표시할 고객 수: ${validCustomers.length}`)
     
     let mapOptions
     if (validCustomers.length > 0) {
@@ -1106,7 +1142,7 @@ function openDirections(address) {
 // 고객 목록 패널 접기/펼치기
 function toggleCustomerPanel() {
   const panel = document.getElementById('customerSidePanel')
-  const content = document.getElementById('customerPanelContent')
+  const content = document.getElementById('customerListContent')
   const icon = document.getElementById('panelToggleIcon')
   
   if (!panel || !content || !icon) return
@@ -1117,12 +1153,12 @@ function toggleCustomerPanel() {
     // 펼치기
     content.style.display = 'block'
     panel.style.width = '20rem' // w-80
-    icon.className = 'fas fa-chevron-left'
+    icon.className = 'fas fa-chevron-left text-xl'
   } else {
     // 접기
     content.style.display = 'none'
-    panel.style.width = '3rem' // 버튼만 보이도록
-    icon.className = 'fas fa-chevron-right'
+    panel.style.width = 'auto' // 타이틀만 보이도록
+    icon.className = 'fas fa-chevron-right text-xl'
   }
 }
 
