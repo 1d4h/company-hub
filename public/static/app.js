@@ -151,25 +151,56 @@ async function geocodeAddress(address) {
 }
 
 // ============================================
-// CSV 파싱 함수
+// Excel 파싱 함수
 // ============================================
-function parseCSV(text) {
-  const lines = text.split('\n').filter(line => line.trim())
-  if (lines.length < 2) return []
-  
-  const headers = lines[0].split(',').map(h => h.trim())
-  const data = []
-  
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim())
-    const row = {}
-    headers.forEach((header, index) => {
-      row[header] = values[index] || ''
-    })
-    data.push(row)
-  }
-  
-  return data
+function parseExcel(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result)
+        const workbook = XLSX.read(data, { type: 'array' })
+        
+        // 첫 번째 시트 가져오기
+        const firstSheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[firstSheetName]
+        
+        // 시트를 JSON으로 변환
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1,  // 배열 형태로 반환
+          defval: ''  // 빈 셀은 빈 문자열로
+        })
+        
+        if (jsonData.length < 2) {
+          reject(new Error('파일에 데이터가 없습니다'))
+          return
+        }
+        
+        // 헤더와 데이터 분리
+        const headers = jsonData[0]
+        const rows = []
+        
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = {}
+          headers.forEach((header, index) => {
+            row[header] = jsonData[i][index] !== undefined ? String(jsonData[i][index]).trim() : ''
+          })
+          rows.push(row)
+        }
+        
+        resolve(rows)
+      } catch (error) {
+        reject(error)
+      }
+    }
+    
+    reader.onerror = () => {
+      reject(new Error('파일을 읽을 수 없습니다'))
+    }
+    
+    reader.readAsArrayBuffer(file)
+  })
 }
 
 // ============================================
@@ -324,7 +355,7 @@ function renderAdminDashboard() {
             </h2>
             <div class="flex space-x-3">
               <button onclick="openUploadModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                <i class="fas fa-file-upload mr-2"></i>CSV 업로드
+                <i class="fas fa-file-excel mr-2"></i>Excel 업로드
               </button>
               <button onclick="deleteSelectedCustomers()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
                 <i class="fas fa-trash mr-2"></i>선택 삭제
@@ -361,12 +392,12 @@ function renderAdminDashboard() {
       </main>
     </div>
     
-    <!-- CSV 업로드 모달 -->
+    <!-- Excel 업로드 모달 -->
     <div id="uploadModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         <div class="p-6 border-b flex justify-between items-center">
           <h3 class="text-xl font-bold text-gray-800">
-            <i class="fas fa-file-upload mr-2"></i>CSV 파일 업로드
+            <i class="fas fa-file-excel mr-2 text-green-600"></i>Excel 파일 업로드
           </h3>
           <button onclick="closeUploadModal()" class="text-gray-500 hover:text-gray-700">
             <i class="fas fa-times text-xl"></i>
@@ -375,22 +406,38 @@ function renderAdminDashboard() {
         
         <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 140px)">
           <div id="uploadStep1" class="space-y-4">
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 mb-4"></i>
-              <p class="text-gray-600 mb-4">CSV 파일을 선택하거나 드래그하여 업로드하세요</p>
-              <input type="file" id="csvFile" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
-              <button onclick="document.getElementById('csvFile').click()" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                파일 선택
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-green-500 transition">
+              <i class="fas fa-file-excel text-5xl text-green-500 mb-4"></i>
+              <p class="text-gray-600 mb-4">Excel 파일(.xlsx)을 선택하거나 드래그하여 업로드하세요</p>
+              <input type="file" id="excelFile" accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(event)">
+              <button onclick="document.getElementById('excelFile').click()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-folder-open mr-2"></i>파일 선택
               </button>
+            </div>
+            
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p class="font-semibold text-green-900 mb-3">
+                <i class="fas fa-info-circle mr-2"></i>Excel 파일 형식 안내
+              </p>
+              <div class="text-sm text-green-800 space-y-2">
+                <p class="font-semibold">첫 번째 행 (헤더):</p>
+                <div class="bg-white rounded px-3 py-2 font-mono text-xs">
+                  customer_name | phone | email | address | address_detail | memo
+                </div>
+                <p class="text-xs text-green-700 mt-2">
+                  * customer_name과 address는 필수 항목입니다<br>
+                  * 파일 형식: .xlsx 또는 .xls
+                </p>
+              </div>
             </div>
             
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p class="font-semibold text-blue-900 mb-2">
-                <i class="fas fa-info-circle mr-2"></i>CSV 파일 형식
+                <i class="fas fa-download mr-2"></i>샘플 파일 다운로드
               </p>
-              <p class="text-sm text-blue-800">
-                customer_name, phone, email, address, address_detail, memo
-              </p>
+              <button onclick="downloadSampleExcel()" class="text-sm text-blue-700 hover:text-blue-900 underline">
+                고객정보_샘플.xlsx 다운로드
+              </button>
             </div>
           </div>
           
@@ -731,13 +778,22 @@ async function handleFileSelect(event) {
   const file = event.target.files[0]
   if (!file) return
   
-  const reader = new FileReader()
-  reader.onload = async (e) => {
-    const text = e.target.result
-    const data = parseCSV(text)
+  // 파일 확장자 확인
+  const fileName = file.name.toLowerCase()
+  if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+    showToast('Excel 파일(.xlsx, .xls)만 업로드 가능합니다', 'error')
+    event.target.value = ''
+    return
+  }
+  
+  try {
+    showToast('파일을 읽는 중...', 'info')
+    
+    // Excel 파일 파싱
+    const data = await parseExcel(file)
     
     if (data.length === 0) {
-      showToast('파일에서 데이터를 읽을 수 없습니다', 'error')
+      showToast('파일에 데이터가 없습니다', 'error')
       return
     }
     
@@ -753,8 +809,46 @@ async function handleFileSelect(event) {
     
     renderValidationSummary(validation)
     renderDataPreview(validation)
+    
+    showToast('파일을 성공적으로 읽었습니다', 'success')
+  } catch (error) {
+    console.error('파일 읽기 오류:', error)
+    showToast('파일을 읽을 수 없습니다: ' + error.message, 'error')
   }
-  reader.readAsText(file)
+  
+  // 파일 입력 초기화
+  event.target.value = ''
+}
+
+// 샘플 Excel 파일 다운로드
+function downloadSampleExcel() {
+  // 샘플 데이터 생성
+  const sampleData = [
+    ['customer_name', 'phone', 'email', 'address', 'address_detail', 'memo'],
+    ['김철수', '010-1234-5678', 'kim@example.com', '서울특별시 강남구 테헤란로 123', '456호', '중요 고객'],
+    ['이영희', '010-2345-6789', 'lee@example.com', '서울특별시 서초구 서초대로 45', '101호', '정기 방문'],
+    ['박민수', '010-3456-7890', 'park@example.com', '서울특별시 송파구 올림픽로 300', '202호', '신규 고객']
+  ]
+  
+  // 워크북 생성
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.aoa_to_sheet(sampleData)
+  
+  // 열 너비 설정
+  ws['!cols'] = [
+    { wch: 15 },  // customer_name
+    { wch: 15 },  // phone
+    { wch: 25 },  // email
+    { wch: 40 },  // address
+    { wch: 15 },  // address_detail
+    { wch: 20 }   // memo
+  ]
+  
+  XLSX.utils.book_append_sheet(wb, ws, '고객정보')
+  
+  // 파일 다운로드
+  XLSX.writeFile(wb, '고객정보_샘플.xlsx')
+  showToast('샘플 파일이 다운로드되었습니다', 'success')
 }
 
 function renderValidationSummary(validation) {
@@ -1020,6 +1114,7 @@ window.deleteSelectedCustomers = deleteSelectedCustomers
 window.openUploadModal = openUploadModal
 window.closeUploadModal = closeUploadModal
 window.handleFileSelect = handleFileSelect
+window.downloadSampleExcel = downloadSampleExcel
 window.confirmUpload = confirmUpload
 window.showCustomerDetail = showCustomerDetail
 window.showCustomerDetailOnMap = showCustomerDetailOnMap
