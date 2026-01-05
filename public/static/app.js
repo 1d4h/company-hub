@@ -531,9 +531,9 @@ function renderUserMap() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         // 네이버 맵 API 로드 시도
-        const mapDiv = document.getElementById('mapContainer')
+        const mapDiv = document.getElementById('map')
         if (!mapDiv) {
-          console.error('지도 컨테이너를 찾을 수 없습니다')
+          console.error('❌ 지도 컨테이너를 찾을 수 없습니다')
           showMapFallback()
           return
         }
