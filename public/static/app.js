@@ -522,15 +522,15 @@ function renderUserMap() {
       <div class="flex-1 relative">
         <div id="map" class="w-full h-full"></div>
         
-        <!-- 고객 상세 정보 패널 -->
-        <div id="customerDetailPanel" class="hidden absolute top-4 right-4 bg-white rounded-xl shadow-xl p-6 w-80 max-h-[calc(100vh-120px)] overflow-y-auto z-10">
-          <div class="flex justify-between items-start mb-4">
+        <!-- 고객 상세 정보 패널 (모바일 최적화: 전체 화면 모달) -->
+        <div id="customerDetailPanel" class="hidden fixed inset-0 bg-white z-30 overflow-y-auto md:absolute md:top-4 md:right-4 md:left-auto md:bottom-auto md:rounded-xl md:shadow-xl md:w-80 md:max-h-[calc(100vh-120px)]">
+          <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
             <h3 class="text-lg font-bold text-gray-800">고객 상세 정보</h3>
-            <button onclick="closeCustomerDetail()" class="text-gray-500 hover:text-gray-700">
-              <i class="fas fa-times"></i>
+            <button onclick="closeCustomerDetail()" class="p-2 text-gray-500 hover:text-gray-700 active:bg-gray-100 rounded-full">
+              <i class="fas fa-times text-xl"></i>
             </button>
           </div>
-          <div id="customerDetailContent"></div>
+          <div id="customerDetailContent" class="p-4"></div>
         </div>
         
         <!-- 고객 목록 하단 패널 (모바일 최적화) -->
@@ -874,17 +874,18 @@ function initTMap() {
         
         console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColorName}`)
         
-        // SVG 기반 마커 (샘플 코드 스타일)
+        // SVG 기반 마커 (모바일 터치 최적화)
+        const markerSize = 56 // 48px → 56px (모바일 터치 영역 확대)
         const markerHtml = `
-          <div class='_t_marker' style="position:relative; width: 48px; height: 48px;">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <div class='_t_marker' style="position:relative; width: ${markerSize}px; height: ${markerSize}px; cursor: pointer; touch-action: manipulation;">
+            <svg width="${markerSize}" height="${markerSize}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M24 2C15.163 2 8 9.163 8 18C8 29.25 24 46 24 46C24 46 40 29.25 40 18C40 9.163 32.837 2 24 2Z" 
                     fill="${markerColorName === 'green' ? '#10B981' : markerColorName === 'yellow' ? '#F59E0B' : markerColorName === 'red' ? '#EF4444' : '#3B82F6'}" 
                     stroke="white" stroke-width="2"/>
               <circle cx="24" cy="18" r="6" fill="white"/>
             </svg>
-            <div style="position:absolute; top:0; left:0; width:48px; height:48px; display:flex; align-items:center; justify-content: center; padding-bottom: 16px;">
-              <span style="color:${markerColorName === 'green' ? '#10B981' : markerColorName === 'yellow' ? '#F59E0B' : markerColorName === 'red' ? '#EF4444' : '#3B82F6'}; font-weight: 700; font-size: 14px;">📍</span>
+            <div style="position:absolute; top:0; left:0; width:${markerSize}px; height:${markerSize}px; display:flex; align-items:center; justify-content: center; padding-bottom: 16px;">
+              <span style="color:${markerColorName === 'green' ? '#10B981' : markerColorName === 'yellow' ? '#F59E0B' : markerColorName === 'red' ? '#EF4444' : '#3B82F6'}; font-weight: 700; font-size: 16px;">📍</span>
             </div>
           </div>
         `
@@ -894,17 +895,51 @@ function initTMap() {
           map: state.map,
           title: customer.customer_name,
           iconHTML: markerHtml,
-          iconSize: new Tmapv2.Size(48, 48),
-          offset: new Tmapv2.Point(24, 48)
+          iconSize: new Tmapv2.Size(markerSize, markerSize),
+          offset: new Tmapv2.Point(markerSize / 2, markerSize)
         })
         
-        marker.addListener('click', function() {
+        // 터치 이벤트 핸들러 함수
+        const handleMarkerTouch = function() {
+          console.log('🖱️ 마커 클릭/터치:', customer.customer_name)
+          
           // 고객 상세 정보 표시
           showCustomerDetailOnMap(customer)
           
           // 클릭한 위치 기준으로 거리순 고객 목록 표시
           showNearbyCustomers(customer.latitude, customer.longitude)
-        })
+        }
+        
+        // 클릭 이벤트 (데스크톱)
+        marker.addListener('click', handleMarkerTouch)
+        
+        // 터치 이벤트 (모바일) - DOM 요소에 직접 추가
+        setTimeout(() => {
+          const markerElement = marker.getElement()
+          if (markerElement) {
+            // 기존 이벤트 제거 (중복 방지)
+            markerElement.removeEventListener('touchstart', handleMarkerTouch)
+            markerElement.removeEventListener('touchend', handleMarkerTouch)
+            
+            // 터치 이벤트 추가
+            markerElement.addEventListener('touchstart', function(e) {
+              e.preventDefault()
+              e.stopPropagation()
+            }, { passive: false })
+            
+            markerElement.addEventListener('touchend', function(e) {
+              e.preventDefault()
+              e.stopPropagation()
+              handleMarkerTouch()
+            }, { passive: false })
+            
+            // 터치 영역 확대 (CSS)
+            markerElement.style.touchAction = 'manipulation'
+            markerElement.style.cursor = 'pointer'
+            
+            console.log('✅ 터치 이벤트 추가:', customer.customer_name)
+          }
+        }, 100)
         
         state.markers.push(marker)
         console.log(`✅ 마커 ${index + 1} 생성 완료`)
@@ -1478,10 +1513,10 @@ function showCustomerDetail(customerId) {
       
       <div>
         <p class="text-sm text-gray-600">전화번호</p>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
           <p class="text-gray-800 flex-1">${customer.phone || '-'}</p>
           ${customer.phone ? `
-          <a href="tel:${customer.phone}" class="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition">
+          <a href="tel:${customer.phone}" class="px-4 py-2 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 active:bg-green-700 transition touch-action-manipulation">
             <i class="fas fa-phone mr-1"></i>통화연결
           </a>
           ` : ''}
@@ -1524,7 +1559,7 @@ function showCustomerDetail(customerId) {
       
       <div class="pt-4 border-t">
         ${customer.latitude && customer.longitude ? `
-        <button onclick="openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition">
+        <button onclick="openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-6 py-4 text-lg font-semibold bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 active:bg-yellow-700 transition touch-action-manipulation">
           <i class="fas fa-location-arrow mr-2"></i>카카오내비에서 길 안내
         </button>
         ` : ''}
