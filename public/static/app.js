@@ -1024,20 +1024,19 @@ function renderAttachedFile(file) {
         <div class="flex items-center gap-3 flex-1">
           <i class="fas fa-file-excel text-green-600 text-2xl"></i>
           <div class="flex-1 min-w-0">
-            <p class="font-medium text-gray-800 truncate">${file.name}</p>
-            <p class="text-xs text-gray-500">${fileSize} KB</p>
+            <a href="#" onclick="previewAttachedFile(); return false;" class="text-blue-600 hover:text-blue-800 underline cursor-pointer font-medium">
+              ${file.name}
+            </a>
+            <p class="text-xs text-gray-500 mt-1">${fileSize} KB</p>
           </div>
         </div>
         <button onclick="removeAttachedFile()" class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition">
           <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="previewAttachedFile()" class="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition">
-          <i class="fas fa-external-link-alt mr-1"></i>Excel로 파일 열기
-        </button>
-        <button onclick="validateAttachedFile()" class="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition">
-          <i class="fas fa-upload mr-1"></i>업로드
+      <div class="flex justify-end">
+        <button onclick="validateAttachedFile()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+          <i class="fas fa-upload mr-2"></i>업로드
         </button>
       </div>
     </div>
@@ -1083,7 +1082,20 @@ async function validateAttachedFile() {
   }
   
   try {
-    showToast('파일을 검증하는 중...', 'info')
+    // 즉시 다음 화면으로 전환 (로딩 표시)
+    document.getElementById('uploadStep1').classList.add('hidden')
+    document.getElementById('uploadStep2').classList.remove('hidden')
+    
+    // 로딩 표시
+    const summaryEl = document.getElementById('validationSummary')
+    summaryEl.innerHTML = `
+      <div class="flex items-center justify-center py-12">
+        <div class="text-center">
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p class="text-gray-600">파일을 검증하는 중...</p>
+        </div>
+      </div>
+    `
     
     // Excel 파일 파싱
     const data = await parseExcel(state.uploadFile)
@@ -1103,9 +1115,6 @@ async function validateAttachedFile() {
     state.uploadPreviewData = validation
     
     // 검증 결과 표시
-    document.getElementById('uploadStep1').classList.add('hidden')
-    document.getElementById('uploadStep2').classList.remove('hidden')
-    
     renderFileInfo()
     renderValidationSummary(validation)
     renderDataPreview(validation)
@@ -1185,7 +1194,11 @@ function renderFileInfo() {
       <div class="flex items-center">
         <i class="fas fa-file-excel text-blue-600 text-2xl mr-3"></i>
         <div class="flex-1">
-          <p class="font-semibold text-blue-900">${state.uploadFileName || '파일명 없음'}</p>
+          <p class="font-semibold">
+            <a href="#" onclick="openAttachedExcel(); return false;" class="text-blue-600 hover:text-blue-800 underline cursor-pointer">
+              ${state.uploadFileName || '파일명 없음'}
+            </a>
+          </p>
           <p class="text-sm text-blue-700">총 ${state.uploadRawData?.length || 0}개의 데이터</p>
         </div>
       </div>
