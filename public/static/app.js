@@ -799,38 +799,27 @@ function initTMap() {
       try {
         // AS결과에 따라 마커 색상 결정
         const markerColor = getMarkerColorByStatus(customer.as_result)
-        const bgColor = getMarkerBgColor(markerColor)
         
-        console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColor}`)
+        // 색상별 SVG 아이콘 선택
+        let markerColorName = 'blue'
+        if (markerColor === 'g') markerColorName = 'green'
+        else if (markerColor === 'y') markerColorName = 'yellow'
+        else if (markerColor === 'r') markerColorName = 'red'
         
-        // HTML 기반 커스텀 마커 생성
+        console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColorName}`)
+        
+        // SVG 기반 마커 (샘플 코드 스타일)
         const markerHtml = `
-          <div style="position: relative; width: 30px; height: 40px; cursor: pointer;">
-            <div style="
-              width: 30px;
-              height: 30px;
-              background-color: ${bgColor};
-              border: 3px solid white;
-              border-radius: 50%;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 14px;
-              color: white;
-              font-weight: bold;
-            ">📍</div>
-            <div style="
-              position: absolute;
-              bottom: 0;
-              left: 50%;
-              transform: translateX(-50%);
-              width: 0;
-              height: 0;
-              border-left: 8px solid transparent;
-              border-right: 8px solid transparent;
-              border-top: 10px solid ${bgColor};
-            "></div>
+          <div class='_t_marker' style="position:relative; width: 48px; height: 48px;">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M24 2C15.163 2 8 9.163 8 18C8 29.25 24 46 24 46C24 46 40 29.25 40 18C40 9.163 32.837 2 24 2Z" 
+                    fill="${markerColorName === 'green' ? '#10B981' : markerColorName === 'yellow' ? '#F59E0B' : markerColorName === 'red' ? '#EF4444' : '#3B82F6'}" 
+                    stroke="white" stroke-width="2"/>
+              <circle cx="24" cy="18" r="6" fill="white"/>
+            </svg>
+            <div style="position:absolute; top:0; left:0; width:48px; height:48px; display:flex; align-items:center; justify-content: center; padding-bottom: 16px;">
+              <span style="color:${markerColorName === 'green' ? '#10B981' : markerColorName === 'yellow' ? '#F59E0B' : markerColorName === 'red' ? '#EF4444' : '#3B82F6'}; font-weight: 700; font-size: 14px;">📍</span>
+            </div>
           </div>
         `
         
@@ -838,8 +827,9 @@ function initTMap() {
           position: new Tmapv2.LatLng(customer.latitude, customer.longitude),
           map: state.map,
           title: customer.customer_name,
-          icon: markerHtml,
-          iconSize: new Tmapv2.Size(30, 40)
+          iconHTML: markerHtml,
+          iconSize: new Tmapv2.Size(48, 48),
+          offset: new Tmapv2.Point(24, 48)
         })
         
         marker.addListener('click', function() {
@@ -1030,7 +1020,7 @@ function renderAttachedFile(file) {
   
   listEl.innerHTML = `
     <div class="bg-white border border-gray-200 rounded-lg p-3">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-3 flex-1">
           <i class="fas fa-file-excel text-green-600 text-2xl"></i>
           <div class="flex-1 min-w-0">
@@ -1038,28 +1028,56 @@ function renderAttachedFile(file) {
             <p class="text-xs text-gray-500">${fileSize} KB</p>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button onclick="previewAttachedFile()" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition">
-            <i class="fas fa-eye mr-1"></i>파일 열기
-          </button>
-          <button onclick="removeAttachedFile()" class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
+        <button onclick="removeAttachedFile()" class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="previewAttachedFile()" class="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition">
+          <i class="fas fa-external-link-alt mr-1"></i>Excel로 파일 열기
+        </button>
+        <button onclick="validateAttachedFile()" class="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition">
+          <i class="fas fa-check-circle mr-1"></i>검증 후 업로드
+        </button>
       </div>
     </div>
   `
 }
 
-// 첨부 파일 미리보기
-async function previewAttachedFile() {
+// 첨부 파일 열기 (Excel 프로그램으로)
+function previewAttachedFile() {
   if (!state.uploadFile) {
     showToast('첨부된 파일이 없습니다', 'error')
     return
   }
   
   try {
-    showToast('파일을 읽는 중...', 'info')
+    // 파일을 다운로드하여 Excel 프로그램으로 열기
+    const url = URL.createObjectURL(state.uploadFile)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = state.uploadFileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    
+    showToast('파일이 다운로드되었습니다. Excel로 열어서 확인하세요', 'success')
+  } catch (error) {
+    console.error('파일 열기 오류:', error)
+    showToast('파일을 열 수 없습니다: ' + error.message, 'error')
+  }
+}
+
+// 파일 검증 (업로드 전)
+async function validateAttachedFile() {
+  if (!state.uploadFile) {
+    showToast('첨부된 파일이 없습니다', 'error')
+    return
+  }
+  
+  try {
+    showToast('파일을 검증하는 중...', 'info')
     
     // Excel 파일 파싱
     const data = await parseExcel(state.uploadFile)
@@ -1088,8 +1106,8 @@ async function previewAttachedFile() {
     
     showToast('파일 검증이 완료되었습니다', 'success')
   } catch (error) {
-    console.error('파일 읽기 오류:', error)
-    showToast('파일을 읽을 수 없습니다: ' + error.message, 'error')
+    console.error('파일 검증 오류:', error)
+    showToast('파일을 검증할 수 없습니다: ' + error.message, 'error')
   }
 }
 
