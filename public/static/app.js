@@ -296,16 +296,6 @@ function renderLogin() {
         <div class="mt-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-600 text-center">
           <p class="text-xs">계정이 없으신가요? 회원가입 후 관리자 승인이 필요합니다.</p>
         </div>
-        
-        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-          <p class="font-semibold text-blue-800 mb-2">
-            <i class="fas fa-info-circle mr-1"></i>테스트 계정 안내
-          </p>
-          <div class="text-blue-700 space-y-1 text-xs">
-            <p><strong>관리자:</strong> admin/admin123, master1~3/master1~3</p>
-            <p><strong>사용자:</strong> user/user123, test1~10/test1~10</p>
-          </div>
-        </div>
       </div>
     </div>
   `
@@ -864,6 +854,41 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * c) // 미터 단위로 반올림
 }
 
+// 거리 포맷 함수 (1000m 이상은 km로 표시)
+function formatDistance(meters) {
+  if (meters >= 1000) {
+    const km = (meters / 1000).toFixed(1)
+    return `${km}km`
+  }
+  return `${meters}m`
+}
+
+// 날짜 포맷 함수 (YYYY-MM-DD 형식으로 변환)
+function formatDate(dateStr) {
+  if (!dateStr) return '-'
+  
+  try {
+    const date = new Date(dateStr)
+    
+    // 유효한 날짜인지 확인
+    if (isNaN(date.getTime())) {
+      // 이미 YYYY-MM-DD 형식인 경우 그대로 반환
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr
+      }
+      return '-'
+    }
+    
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    
+    return `${year}-${month}-${day}`
+  } catch (error) {
+    return '-'
+  }
+}
+
 // 주변 고객 목록 표시 (거리순)
 function showNearbyCustomers(centerLat, centerLng) {
   // 모든 고객에 대해 거리 계산 (제한 없이 전체 표시)
@@ -938,7 +963,7 @@ function renderCustomerList() {
       <div class="flex items-center justify-between gap-2">
         <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
         <p class="font-medium text-gray-800 text-sm flex-1">${customer.customer_name}</p>
-        ${customer.distance ? `<span class="text-xs text-gray-500">${customer.distance}m</span>` : ''}
+        ${customer.distance ? `<span class="text-xs text-gray-500">${formatDistance(customer.distance)}</span>` : ''}
       </div>
     </div>
     `
@@ -1789,7 +1814,7 @@ function showCustomerDetail(customerId) {
       
       <div>
         <p class="text-sm text-gray-600">접수일자</p>
-        <p class="text-gray-800">${customer.receipt_date || customer.created_at || '-'}</p>
+        <p class="text-gray-800">${formatDate(customer.receipt_date || customer.created_at)}</p>
       </div>
       
       <div class="pt-4 border-t">
