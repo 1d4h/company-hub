@@ -563,7 +563,10 @@ function renderCustomerList() {
     return
   }
   
-  listEl.innerHTML = state.customers.map(customer => {
+  // 최대 10개까지만 표시
+  const displayCustomers = state.customers.slice(0, 10)
+  
+  listEl.innerHTML = displayCustomers.map(customer => {
     // AS결과에 따라 상태 색상 결정
     const markerColor = getMarkerColorByStatus(customer.as_result)
     let statusColor = 'gray'
@@ -724,27 +727,36 @@ function initTMap() {
     console.log('✅ T Map 객체 생성 완료')
     
     // 고객 마커 추가
-    validCustomers.forEach(customer => {
-      // AS결과에 따라 마커 색상 결정
-      const markerColor = getMarkerColorByStatus(customer.as_result)
-      const markerIcon = `https://tmapapi.sktelecom.com/upload/tmap/marker/pin_${markerColor}_m_a.png`
-      
-      const marker = new Tmapv2.Marker({
-        position: new Tmapv2.LatLng(customer.latitude, customer.longitude),
-        map: state.map,
-        title: customer.customer_name,
-        icon: markerIcon,
-        iconSize: new Tmapv2.Size(24, 38)
-      })
-      
-      marker.addListener('click', function() {
-        showCustomerDetailOnMap(customer)
-      })
-      
-      state.markers.push(marker)
+    console.log(`📍 마커 생성 시작 - 고객 수: ${validCustomers.length}`)
+    
+    validCustomers.forEach((customer, index) => {
+      try {
+        // AS결과에 따라 마커 색상 결정
+        const markerColor = getMarkerColorByStatus(customer.as_result)
+        const markerIcon = `https://tmapapi.sktelecom.com/upload/tmap/marker/pin_${markerColor}_m_a.png`
+        
+        console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColor}`)
+        
+        const marker = new Tmapv2.Marker({
+          position: new Tmapv2.LatLng(customer.latitude, customer.longitude),
+          map: state.map,
+          title: customer.customer_name,
+          icon: markerIcon,
+          iconSize: new Tmapv2.Size(24, 38)
+        })
+        
+        marker.addListener('click', function() {
+          showCustomerDetailOnMap(customer)
+        })
+        
+        state.markers.push(marker)
+        console.log(`✅ 마커 ${index + 1} 생성 완료`)
+      } catch (error) {
+        console.error(`❌ 마커 ${index + 1} 생성 실패:`, error)
+      }
     })
     
-    console.log(`✅ T Map 초기화 완료: ${validCustomers.length}개의 마커 표시`)
+    console.log(`✅ T Map 초기화 완료: ${validCustomers.length}개의 마커 생성 시도, ${state.markers.length}개 성공`)
     showToast('지도가 로드되었습니다', 'success')
     
   } catch (error) {
@@ -1122,7 +1134,14 @@ function showCustomerDetail(customerId) {
       
       <div>
         <p class="text-sm text-gray-600">전화번호</p>
-        <p class="text-gray-800">${customer.phone || '-'}</p>
+        <div class="flex items-center gap-2">
+          <p class="text-gray-800 flex-1">${customer.phone || '-'}</p>
+          ${customer.phone ? `
+          <a href="tel:${customer.phone}" class="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition">
+            <i class="fas fa-phone mr-1"></i>통화연결
+          </a>
+          ` : ''}
+        </div>
       </div>
       
       <div>
@@ -1159,15 +1178,12 @@ function showCustomerDetail(customerId) {
         <p class="text-gray-800">${customer.receipt_date || customer.created_at || '-'}</p>
       </div>
       
-      <div class="pt-4 border-t space-y-2">
+      <div class="pt-4 border-t">
         ${customer.latitude && customer.longitude ? `
         <button onclick="openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          <i class="fas fa-route mr-2"></i>길 안내
+          <i class="fas fa-route mr-2"></i>T Map에서 길 안내
         </button>
         ` : ''}
-        <button onclick="openDirections('${customer.address.replace(/'/g, "\\'")}')" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-          <i class="fas fa-search-location mr-2"></i>T Map에서 보기
-        </button>
       </div>
     </div>
   `
