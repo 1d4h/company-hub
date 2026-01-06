@@ -667,6 +667,17 @@ function getMarkerColorByStatus(asResult) {
   }
 }
 
+// 마커 색상 → 배경색 변환
+function getMarkerBgColor(markerColor) {
+  const colors = {
+    'g': '#10B981',  // 초록색
+    'y': '#F59E0B',  // 노란색
+    'r': '#EF4444',  // 빨간색
+    'b': '#3B82F6'   // 파란색
+  }
+  return colors[markerColor] || colors['b']
+}
+
 // 네이버 지도 초기화
 function initTMap() {
   console.log('🗺️ T Map 초기화 시작...')
@@ -733,16 +744,26 @@ function initTMap() {
       try {
         // AS결과에 따라 마커 색상 결정
         const markerColor = getMarkerColorByStatus(customer.as_result)
-        const markerIcon = `https://tmapapi.sktelecom.com/upload/tmap/marker/pin_${markerColor}_m_a.png`
         
-        console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColor}`)
+        // T Map 기본 마커 아이콘 (색상별)
+        const markerIcons = {
+          'g': 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_g_m_a.png',  // 초록색
+          'y': 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_y_m_a.png',  // 노란색
+          'r': 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_r_m_a.png',  // 빨간색
+          'b': 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_b_m_a.png'   // 파란색
+        }
+        
+        const markerIcon = markerIcons[markerColor] || markerIcons['b']
+        
+        console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColor}, 아이콘: ${markerIcon}`)
         
         const marker = new Tmapv2.Marker({
           position: new Tmapv2.LatLng(customer.latitude, customer.longitude),
           map: state.map,
           title: customer.customer_name,
           icon: markerIcon,
-          iconSize: new Tmapv2.Size(24, 38)
+          iconSize: new Tmapv2.Size(24, 38),
+          visible: true
         })
         
         marker.addListener('click', function() {
