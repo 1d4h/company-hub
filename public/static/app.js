@@ -563,24 +563,49 @@ function renderCustomerList() {
     return
   }
   
-  listEl.innerHTML = state.customers.map(customer => `
+  listEl.innerHTML = state.customers.map(customer => {
+    // AS결과에 따라 상태 색상 결정
+    const markerColor = getMarkerColorByStatus(customer.as_result)
+    let statusColor = 'gray'
+    let statusIcon = 'fa-circle'
+    
+    if (markerColor === 'g') {
+      statusColor = 'green'
+      statusIcon = 'fa-check-circle'
+    } else if (markerColor === 'y') {
+      statusColor = 'yellow'
+      statusIcon = 'fa-clock'
+    } else if (markerColor === 'r') {
+      statusColor = 'red'
+      statusIcon = 'fa-exclamation-circle'
+    } else {
+      statusColor = 'blue'
+      statusIcon = 'fa-circle'
+    }
+    
+    return `
     <div class="p-3 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-2 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
       <div class="flex items-start justify-between">
         <div class="flex-1">
-          <p class="font-semibold text-gray-800">${customer.customer_name}</p>
+          <div class="flex items-center gap-2">
+            <p class="font-semibold text-gray-800">${customer.customer_name}</p>
+            <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
+          </div>
           <p class="text-xs text-blue-600 font-medium">${customer.region || ''}</p>
           <p class="text-sm text-gray-600 truncate mt-1">${customer.address}</p>
           <p class="text-xs text-gray-500 mt-1">${customer.as_content || ''}</p>
+          ${customer.as_result ? `<p class="text-xs text-${statusColor}-600 font-medium mt-1"><i class="fas fa-clipboard-check mr-1"></i>${customer.as_result}</p>` : ''}
           ${customer.phone ? `<p class="text-xs text-gray-500 mt-1"><i class="fas fa-phone mr-1"></i>${customer.phone}</p>` : ''}
         </div>
         <div class="ml-2">
           ${customer.latitude && customer.longitude 
-            ? '<span class="text-green-500"><i class="fas fa-map-marker-alt"></i></span>' 
+            ? `<span class="text-${statusColor}-500"><i class="fas fa-map-marker-alt"></i></span>`
             : '<span class="text-gray-300"><i class="fas fa-map-marker-alt"></i></span>'}
         </div>
       </div>
     </div>
-  `).join('')
+    `
+  }).join('')
 }
 
 // 지도 로드 실패시 대체 UI
@@ -613,6 +638,30 @@ function showMapFallback() {
       </div>
     </div>
   `
+}
+
+// AS결과에 따라 마커 색상 결정
+function getMarkerColorByStatus(asResult) {
+  if (!asResult) return 'b' // 기본 파란색
+  
+  const result = String(asResult).trim().toLowerCase()
+  
+  // "완료" 키워드 포함 시 초록색
+  if (result.includes('완료') || result.includes('수리') || result.includes('교체')) {
+    return 'g' // green - 완료된 AS
+  }
+  // "점검" 또는 "대기" 키워드 포함 시 노란색
+  else if (result.includes('점검') || result.includes('대기') || result.includes('예정')) {
+    return 'y' // yellow - 점검/대기
+  }
+  // "취소" 또는 "불가" 키워드 포함 시 회색
+  else if (result.includes('취소') || result.includes('불가') || result.includes('보류')) {
+    return 'b' // blue(neutral) - 보류/취소
+  }
+  // 기타는 빨간색 (미완료/문제 있음)
+  else {
+    return 'r' // red - 미완료/문제
+  }
 }
 
 // 네이버 지도 초기화
@@ -676,11 +725,15 @@ function initTMap() {
     
     // 고객 마커 추가
     validCustomers.forEach(customer => {
+      // AS결과에 따라 마커 색상 결정
+      const markerColor = getMarkerColorByStatus(customer.as_result)
+      const markerIcon = `https://tmapapi.sktelecom.com/upload/tmap/marker/pin_${markerColor}_m_a.png`
+      
       const marker = new Tmapv2.Marker({
         position: new Tmapv2.LatLng(customer.latitude, customer.longitude),
         map: state.map,
         title: customer.customer_name,
-        icon: 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_r_m_a.png',
+        icon: markerIcon,
         iconSize: new Tmapv2.Size(24, 38)
       })
       
@@ -822,6 +875,9 @@ async function handleFileSelect(event) {
   }
   
   try {
+    // 파일명 저장
+    state.uploadFileName = file.name
+    
     showToast('파일을 읽는 중...', 'info')
     
     // Excel 파일 파싱
@@ -831,6 +887,9 @@ async function handleFileSelect(event) {
       showToast('파일에 데이터가 없습니다', 'error')
       return
     }
+    
+    // 원본 데이터 저장 (미리보기용)
+    state.uploadRawData = data
     
     // 데이터 검증
     const validation = await validateCustomerData(data)
@@ -842,6 +901,7 @@ async function handleFileSelect(event) {
     document.getElementById('uploadStep1').classList.add('hidden')
     document.getElementById('uploadStep2').classList.remove('hidden')
     
+    renderFileInfo()
     renderValidationSummary(validation)
     renderDataPreview(validation)
     
@@ -893,6 +953,24 @@ function downloadSampleExcel() {
   // 파일 다운로드
   XLSX.writeFile(wb, 'AS접수현황_템플릿.xlsx')
   showToast('템플릿 파일이 다운로드되었습니다', 'success')
+}
+
+// 파일 정보 표시
+function renderFileInfo() {
+  const fileInfoEl = document.getElementById('fileInfo')
+  if (!fileInfoEl) return
+  
+  fileInfoEl.innerHTML = `
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+      <div class="flex items-center">
+        <i class="fas fa-file-excel text-blue-600 text-2xl mr-3"></i>
+        <div class="flex-1">
+          <p class="font-semibold text-blue-900">${state.uploadFileName || '파일명 없음'}</p>
+          <p class="text-sm text-blue-700">총 ${state.uploadRawData?.length || 0}개의 데이터</p>
+        </div>
+      </div>
+    </div>
+  `
 }
 
 function renderValidationSummary(validation) {

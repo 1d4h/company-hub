@@ -215,36 +215,51 @@ app.post('/api/customers/validate', async (c) => {
       const row = data[i]
       const errors = []
       
-      if (!row.customer_name || row.customer_name.trim() === '') {
+      // 필드 매핑: 엑셀 헤더 → DB 필드
+      const mappedRow = {
+        sequence: row['순번'],
+        count: row['횟수'],
+        receipt_date: row['접수일자'],
+        company: row['업체'],
+        category: row['구분'],
+        customer_name: row['고객명'],
+        phone: row['전화번호'],
+        install_date: row['설치연,월'],
+        heat_source: row['열원'],
+        address: row['주소'],
+        as_content: row['AS접수내용'],
+        install_team: row['설치팀'],
+        region: row['지역'],
+        receptionist: row['접수자'],
+        as_result: row['AS결과']
+      }
+      
+      if (!mappedRow.customer_name || mappedRow.customer_name.toString().trim() === '') {
         errors.push('고객명은 필수입니다')
       }
-      if (!row.address || row.address.trim() === '') {
+      if (!mappedRow.address || mappedRow.address.toString().trim() === '') {
         errors.push('주소는 필수입니다')
       }
       
-      if (row.phone && !/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/.test(row.phone.replace(/-/g, ''))) {
+      if (mappedRow.phone && !/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/.test(mappedRow.phone.toString().replace(/-/g, ''))) {
         errors.push('전화번호 형식이 올바르지 않습니다')
       }
       
-      if (row.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) {
-        errors.push('이메일 형식이 올바르지 않습니다')
-      }
-      
-      if (row.address && existingAddresses.has(row.address)) {
+      if (mappedRow.address && existingAddresses.has(mappedRow.address)) {
         errors.push('이미 등록된 주소입니다 (데이터베이스)')
       }
       
-      if (row.address && currentAddresses.has(row.address)) {
+      if (mappedRow.address && currentAddresses.has(mappedRow.address)) {
         errors.push('업로드 파일 내 중복된 주소입니다')
-        duplicates.push({ ...row, rowIndex: i + 1, errors })
-      } else if (row.address) {
-        currentAddresses.add(row.address)
+        duplicates.push({ ...mappedRow, rowIndex: i + 1, errors })
+      } else if (mappedRow.address) {
+        currentAddresses.add(mappedRow.address)
       }
       
       if (errors.length > 0) {
-        invalidRows.push({ ...row, rowIndex: i + 1, errors })
+        invalidRows.push({ ...mappedRow, rowIndex: i + 1, errors })
       } else {
-        validRows.push({ ...row, rowIndex: i + 1 })
+        validRows.push({ ...mappedRow, rowIndex: i + 1 })
       }
     }
     
@@ -275,14 +290,23 @@ app.post('/api/customers/batch-upload', async (c) => {
     for (const row of data) {
       const newCustomer = {
         id: nextCustomerId++,
+        sequence: row.sequence || null,
+        count: row.count || null,
+        receipt_date: row.receipt_date || new Date().toISOString().split('T')[0],
+        company: row.company || null,
+        category: row.category || null,
         customer_name: row.customer_name,
         phone: row.phone || null,
-        email: row.email || null,
+        install_date: row.install_date || null,
+        heat_source: row.heat_source || null,
         address: row.address,
-        address_detail: row.address_detail || null,
+        as_content: row.as_content || null,
+        install_team: row.install_team || null,
+        region: row.region || null,
+        receptionist: row.receptionist || null,
+        as_result: row.as_result || null,
         latitude: row.latitude || null,
         longitude: row.longitude || null,
-        memo: row.memo || null,
         created_by: userId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
