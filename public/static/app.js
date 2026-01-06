@@ -406,38 +406,45 @@ function renderAdminDashboard() {
         
         <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 140px)">
           <div id="uploadStep1" class="space-y-4">
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-green-500 transition">
-              <i class="fas fa-file-excel text-5xl text-green-500 mb-4"></i>
-              <p class="text-gray-600 mb-4">Excel 파일(.xlsx)을 선택하거나 드래그하여 업로드하세요</p>
-              <input type="file" id="excelFile" accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(event)">
-              <button onclick="document.getElementById('excelFile').click()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                <i class="fas fa-folder-open mr-2"></i>파일 선택
-              </button>
-            </div>
-            
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p class="font-semibold text-green-900 mb-3">
-                <i class="fas fa-info-circle mr-2"></i>Excel 파일 형식 안내
-              </p>
-              <div class="text-sm text-green-800 space-y-2">
-                <p class="font-semibold">첫 번째 행 (헤더):</p>
-                <div class="bg-white rounded px-3 py-2 font-mono text-xs">
-                  customer_name | phone | email | address | address_detail | memo
+            <!-- 메일 첨부 형식 UI -->
+            <div class="bg-white border border-gray-300 rounded-lg">
+              <!-- 파일 첨부 영역 -->
+              <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center gap-3">
+                  <label class="text-sm font-medium text-gray-700 w-20">파일 첨부:</label>
+                  <div class="flex-1">
+                    <input type="file" id="excelFile" accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(event)">
+                    <button onclick="document.getElementById('excelFile').click()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm">
+                      <i class="fas fa-paperclip mr-2"></i>파일 선택
+                    </button>
+                  </div>
                 </div>
-                <p class="text-xs text-green-700 mt-2">
-                  * customer_name과 address는 필수 항목입니다<br>
-                  * 파일 형식: .xlsx 또는 .xls
+              </div>
+              
+              <!-- 첨부된 파일 목록 -->
+              <div id="attachedFilesList" class="p-4 bg-gray-50 min-h-[100px]">
+                <p class="text-sm text-gray-500 text-center py-8">
+                  <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i><br>
+                  첨부된 파일이 없습니다
                 </p>
               </div>
             </div>
             
+            <!-- 샘플 파일 다운로드 -->
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p class="font-semibold text-blue-900 mb-2">
-                <i class="fas fa-download mr-2"></i>샘플 파일 다운로드
-              </p>
-              <button onclick="downloadSampleExcel()" class="text-sm text-blue-700 hover:text-blue-900 underline">
-                AS접수현황_템플릿.xlsx 다운로드
-              </button>
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="font-semibold text-blue-900 mb-1">
+                    <i class="fas fa-info-circle mr-2"></i>템플릿 파일
+                  </p>
+                  <p class="text-xs text-blue-700">
+                    AS접수현황 Excel 템플릿을 다운로드하여 작성하세요
+                  </p>
+                </div>
+                <button onclick="downloadSampleExcel()" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                  <i class="fas fa-download mr-2"></i>다운로드
+                </button>
+              </div>
             </div>
           </div>
           
@@ -792,26 +799,47 @@ function initTMap() {
       try {
         // AS결과에 따라 마커 색상 결정
         const markerColor = getMarkerColorByStatus(customer.as_result)
+        const bgColor = getMarkerBgColor(markerColor)
         
-        // T Map 기본 마커 아이콘 (색상별)
-        const markerIcons = {
-          'g': 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_g_m_a.png',  // 초록색
-          'y': 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_y_m_a.png',  // 노란색
-          'r': 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_r_m_a.png',  // 빨간색
-          'b': 'https://tmapapi.sktelecom.com/upload/tmap/marker/pin_b_m_a.png'   // 파란색
-        }
+        console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColor}`)
         
-        const markerIcon = markerIcons[markerColor] || markerIcons['b']
-        
-        console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColor}, 아이콘: ${markerIcon}`)
+        // HTML 기반 커스텀 마커 생성
+        const markerHtml = `
+          <div style="position: relative; width: 30px; height: 40px; cursor: pointer;">
+            <div style="
+              width: 30px;
+              height: 30px;
+              background-color: ${bgColor};
+              border: 3px solid white;
+              border-radius: 50%;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 14px;
+              color: white;
+              font-weight: bold;
+            ">📍</div>
+            <div style="
+              position: absolute;
+              bottom: 0;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 0;
+              height: 0;
+              border-left: 8px solid transparent;
+              border-right: 8px solid transparent;
+              border-top: 10px solid ${bgColor};
+            "></div>
+          </div>
+        `
         
         const marker = new Tmapv2.Marker({
           position: new Tmapv2.LatLng(customer.latitude, customer.longitude),
           map: state.map,
           title: customer.customer_name,
-          icon: markerIcon,
-          iconSize: new Tmapv2.Size(24, 38),
-          visible: true
+          icon: markerHtml,
+          iconSize: new Tmapv2.Size(30, 40)
         })
         
         marker.addListener('click', function() {
@@ -945,6 +973,24 @@ function openUploadModal() {
 function closeUploadModal() {
   document.getElementById('uploadModal').classList.add('hidden')
   state.uploadPreviewData = null
+  state.uploadFile = null
+  state.uploadFileName = null
+  state.uploadRawData = null
+  
+  // 첨부 파일 목록 초기화
+  const listEl = document.getElementById('attachedFilesList')
+  if (listEl) {
+    listEl.innerHTML = `
+      <p class="text-sm text-gray-500 text-center py-8">
+        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i><br>
+        첨부된 파일이 없습니다
+      </p>
+    `
+  }
+  
+  // uploadStep1 보이기
+  document.getElementById('uploadStep1').classList.remove('hidden')
+  document.getElementById('uploadStep2').classList.add('hidden')
 }
 
 async function handleFileSelect(event) {
@@ -962,18 +1008,68 @@ async function handleFileSelect(event) {
   try {
     // 파일명 저장
     state.uploadFileName = file.name
+    state.uploadFile = file
     
+    // 첨부 파일 목록에 표시
+    renderAttachedFile(file)
+    
+    showToast('파일이 첨부되었습니다. "파일 열기"로 내용을 확인하세요', 'success')
+  } catch (error) {
+    console.error('파일 첨부 오류:', error)
+    showToast('파일을 첨부할 수 없습니다: ' + error.message, 'error')
+  }
+  
+  // 파일 입력 초기화
+  event.target.value = ''
+}
+
+// 첨부 파일 표시 (메일 형식)
+function renderAttachedFile(file) {
+  const listEl = document.getElementById('attachedFilesList')
+  const fileSize = (file.size / 1024).toFixed(2) // KB
+  
+  listEl.innerHTML = `
+    <div class="bg-white border border-gray-200 rounded-lg p-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3 flex-1">
+          <i class="fas fa-file-excel text-green-600 text-2xl"></i>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-gray-800 truncate">${file.name}</p>
+            <p class="text-xs text-gray-500">${fileSize} KB</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="previewAttachedFile()" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition">
+            <i class="fas fa-eye mr-1"></i>파일 열기
+          </button>
+          <button onclick="removeAttachedFile()" class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+// 첨부 파일 미리보기
+async function previewAttachedFile() {
+  if (!state.uploadFile) {
+    showToast('첨부된 파일이 없습니다', 'error')
+    return
+  }
+  
+  try {
     showToast('파일을 읽는 중...', 'info')
     
     // Excel 파일 파싱
-    const data = await parseExcel(file)
+    const data = await parseExcel(state.uploadFile)
     
     if (data.length === 0) {
       showToast('파일에 데이터가 없습니다', 'error')
       return
     }
     
-    // 원본 데이터 저장 (미리보기용)
+    // 원본 데이터 저장
     state.uploadRawData = data
     
     // 데이터 검증
@@ -990,14 +1086,29 @@ async function handleFileSelect(event) {
     renderValidationSummary(validation)
     renderDataPreview(validation)
     
-    showToast('파일을 성공적으로 읽었습니다', 'success')
+    showToast('파일 검증이 완료되었습니다', 'success')
   } catch (error) {
     console.error('파일 읽기 오류:', error)
     showToast('파일을 읽을 수 없습니다: ' + error.message, 'error')
   }
+}
+
+// 첨부 파일 제거
+function removeAttachedFile() {
+  state.uploadFile = null
+  state.uploadFileName = null
+  state.uploadRawData = null
+  state.uploadPreviewData = null
   
-  // 파일 입력 초기화
-  event.target.value = ''
+  const listEl = document.getElementById('attachedFilesList')
+  listEl.innerHTML = `
+    <p class="text-sm text-gray-500 text-center py-8">
+      <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i><br>
+      첨부된 파일이 없습니다
+    </p>
+  `
+  
+  showToast('파일이 제거되었습니다', 'success')
 }
 
 // 샘플 Excel 파일 다운로드
