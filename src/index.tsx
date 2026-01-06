@@ -20,9 +20,24 @@ let users: any[] = [
     phone: '010-7597-4541',
     status: 'approved',
     created_at: new Date().toISOString()
-  }
+  },
+  // 관리자 계정 3개
+  { id: 2, username: 'master1', password: 'master1', role: 'admin', name: '관리자1', phone: '01000000001', status: 'approved', created_at: new Date().toISOString() },
+  { id: 3, username: 'master2', password: 'master2', role: 'admin', name: '관리자2', phone: '01000000002', status: 'approved', created_at: new Date().toISOString() },
+  { id: 4, username: 'master3', password: 'master3', role: 'admin', name: '관리자3', phone: '01000000003', status: 'approved', created_at: new Date().toISOString() },
+  // 사용자 계정 10개
+  { id: 5, username: 'test1', password: 'test1', role: 'user', name: '사용자1', phone: '01000000011', status: 'approved', created_at: new Date().toISOString() },
+  { id: 6, username: 'test2', password: 'test2', role: 'user', name: '사용자2', phone: '01000000012', status: 'approved', created_at: new Date().toISOString() },
+  { id: 7, username: 'test3', password: 'test3', role: 'user', name: '사용자3', phone: '01000000013', status: 'approved', created_at: new Date().toISOString() },
+  { id: 8, username: 'test4', password: 'test4', role: 'user', name: '사용자4', phone: '01000000014', status: 'approved', created_at: new Date().toISOString() },
+  { id: 9, username: 'test5', password: 'test5', role: 'user', name: '사용자5', phone: '01000000015', status: 'approved', created_at: new Date().toISOString() },
+  { id: 10, username: 'test6', password: 'test6', role: 'user', name: '사용자6', phone: '01000000016', status: 'approved', created_at: new Date().toISOString() },
+  { id: 11, username: 'test7', password: 'test7', role: 'user', name: '사용자7', phone: '01000000017', status: 'approved', created_at: new Date().toISOString() },
+  { id: 12, username: 'test8', password: 'test8', role: 'user', name: '사용자8', phone: '01000000018', status: 'approved', created_at: new Date().toISOString() },
+  { id: 13, username: 'test9', password: 'test9', role: 'user', name: '사용자9', phone: '01000000019', status: 'approved', created_at: new Date().toISOString() },
+  { id: 14, username: 'test10', password: 'test10', role: 'user', name: '사용자10', phone: '01000000020', status: 'approved', created_at: new Date().toISOString() }
 ]
-let nextUserId = 2
+let nextUserId = 15
 
 // 승인 대기 회원
 let pendingUsers: any[] = []
