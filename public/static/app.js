@@ -525,7 +525,24 @@ function renderUserMap() {
   
   // 먼저 고객 데이터 로드
   loadCustomers().then(() => {
-    renderCustomerList()
+    // 초기에는 고객 목록 비우기 (접힌 상태로 시작)
+    const listEl = document.getElementById('customerList')
+    if (listEl) {
+      listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">지도에서 위치를 선택하면<br/>주변 고객 목록이 표시됩니다</p>'
+    }
+    
+    // 고객 목록 패널 기본값 접기
+    setTimeout(() => {
+      const content = document.getElementById('customerListContent')
+      const panel = document.getElementById('customerSidePanel')
+      const icon = document.getElementById('panelToggleIcon')
+      
+      if (content && panel && icon) {
+        content.style.display = 'none'
+        panel.style.width = 'auto'
+        icon.className = 'fas fa-chevron-right text-xl'
+      }
+    }, 100)
     
     // DOM이 완전히 렌더링될 때까지 대기
     requestAnimationFrame(() => {
@@ -553,6 +570,48 @@ function renderUserMap() {
   })
 }
 
+// 두 좌표 간 거리 계산 (미터)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000 // 지구 반지름 (미터)
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return Math.round(R * c) // 미터 단위로 반올림
+}
+
+// 주변 고객 목록 표시 (거리순)
+function showNearbyCustomers(centerLat, centerLng) {
+  // 모든 고객에 대해 거리 계산
+  const customersWithDistance = state.customers
+    .filter(c => c.latitude && c.longitude)
+    .map(customer => ({
+      ...customer,
+      distance: calculateDistance(centerLat, centerLng, customer.latitude, customer.longitude)
+    }))
+    .sort((a, b) => a.distance - b.distance) // 거리순 정렬
+  
+  // 정렬된 고객 목록 저장
+  state.sortedCustomers = customersWithDistance
+  
+  // 고객 목록 렌더링
+  renderCustomerList()
+  
+  // 고객 목록 패널 펼치기
+  const content = document.getElementById('customerListContent')
+  const panel = document.getElementById('customerSidePanel')
+  const icon = document.getElementById('panelToggleIcon')
+  
+  if (content && panel && icon) {
+    content.style.display = 'block'
+    panel.style.width = '20rem'
+    icon.className = 'fas fa-chevron-left text-xl'
+  }
+}
+
 // 고객 목록 렌더링 (지도 뷰용)
 function renderCustomerList() {
   const listEl = document.getElementById('customerList')
@@ -563,8 +622,8 @@ function renderCustomerList() {
     return
   }
   
-  // 최대 10개까지만 표시
-  const displayCustomers = state.customers.slice(0, 10)
+  // 거리순 정렬 옵션이 있으면 사용, 없으면 모든 고객 표시
+  const displayCustomers = state.sortedCustomers || state.customers
   
   listEl.innerHTML = displayCustomers.map(customer => {
     // AS결과에 따라 상태 색상 결정
@@ -586,25 +645,13 @@ function renderCustomerList() {
       statusIcon = 'fa-circle'
     }
     
+    // 간소화된 고객명만 표시
     return `
-    <div class="p-3 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-2 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
-      <div class="flex items-start justify-between">
-        <div class="flex-1">
-          <div class="flex items-center gap-2">
-            <p class="font-semibold text-gray-800">${customer.customer_name}</p>
-            <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
-          </div>
-          <p class="text-xs text-blue-600 font-medium">${customer.region || ''}</p>
-          <p class="text-sm text-gray-600 truncate mt-1">${customer.address}</p>
-          <p class="text-xs text-gray-500 mt-1">${customer.as_content || ''}</p>
-          ${customer.as_result ? `<p class="text-xs text-${statusColor}-600 font-medium mt-1"><i class="fas fa-clipboard-check mr-1"></i>${customer.as_result}</p>` : ''}
-          ${customer.phone ? `<p class="text-xs text-gray-500 mt-1"><i class="fas fa-phone mr-1"></i>${customer.phone}</p>` : ''}
-        </div>
-        <div class="ml-2">
-          ${customer.latitude && customer.longitude 
-            ? `<span class="text-${statusColor}-500"><i class="fas fa-map-marker-alt"></i></span>`
-            : '<span class="text-gray-300"><i class="fas fa-map-marker-alt"></i></span>'}
-        </div>
+    <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
+        <p class="font-medium text-gray-800 text-sm flex-1">${customer.customer_name}</p>
+        ${customer.distance ? `<span class="text-xs text-gray-500">${customer.distance}m</span>` : ''}
       </div>
     </div>
     `
@@ -735,7 +782,8 @@ function initTMap() {
       scrollwheel: true
     })
     
-    console.log('✅ T Map 객체 생성 완료')
+    console.log('✅ T Map 객체 생성 완료', state.map)
+    console.log('🗺️ 지도 중심:', center.toString(), '줌 레벨:', zoom)
     
     // 고객 마커 추가
     console.log(`📍 마커 생성 시작 - 고객 수: ${validCustomers.length}`)
@@ -767,7 +815,11 @@ function initTMap() {
         })
         
         marker.addListener('click', function() {
+          // 고객 상세 정보 표시
           showCustomerDetailOnMap(customer)
+          
+          // 클릭한 위치 기준으로 거리순 고객 목록 표시
+          showNearbyCustomers(customer.latitude, customer.longitude)
         })
         
         state.markers.push(marker)
@@ -1046,36 +1098,22 @@ function renderDataPreview(validation) {
   
   let html = ''
   
-  // 유효한 데이터
+  // 유효한 데이터 - 간단한 요약만 표시
   if (validation.validRows.length > 0) {
     html += `
       <div class="mb-6">
         <h4 class="font-semibold text-green-700 mb-3">
           <i class="fas fa-check-circle mr-2"></i>유효한 데이터 (${validation.validRows.length}건)
         </h4>
-        <div class="overflow-x-auto max-h-60 overflow-y-auto border rounded-lg">
-          <table class="w-full text-sm">
-            <thead class="bg-green-50 sticky top-0">
-              <tr>
-                <th class="px-3 py-2 text-left">No</th>
-                <th class="px-3 py-2 text-left">고객명</th>
-                <th class="px-3 py-2 text-left">전화번호</th>
-                <th class="px-3 py-2 text-left">주소</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              ${validation.validRows.slice(0, 10).map(row => `
-                <tr>
-                  <td class="px-3 py-2">${row.rowIndex}</td>
-                  <td class="px-3 py-2">${row.customer_name}</td>
-                  <td class="px-3 py-2">${row.phone || '-'}</td>
-                  <td class="px-3 py-2">${row.address}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p class="text-sm text-green-800">
+            <i class="fas fa-info-circle mr-2"></i>
+            ${validation.validRows.length}건의 고객 데이터가 업로드 준비되었습니다.
+          </p>
+          <p class="text-xs text-green-700 mt-2">
+            파일을 확인하려면 Excel 프로그램에서 직접 열어보세요.
+          </p>
         </div>
-        ${validation.validRows.length > 10 ? `<p class="text-sm text-gray-600 mt-2">외 ${validation.validRows.length - 10}건...</p>` : ''}
       </div>
     `
   }
