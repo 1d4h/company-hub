@@ -1195,7 +1195,7 @@ function renderFileInfo() {
         <i class="fas fa-file-excel text-blue-600 text-2xl mr-3"></i>
         <div class="flex-1">
           <p class="font-semibold">
-            <a href="#" onclick="openAttachedExcel(); return false;" class="text-blue-600 hover:text-blue-800 underline cursor-pointer">
+            <a href="#" onclick="previewAttachedFile(); return false;" class="text-blue-600 hover:text-blue-800 underline cursor-pointer">
               ${state.uploadFileName || '파일명 없음'}
             </a>
           </p>
@@ -1341,21 +1341,48 @@ async function confirmUpload() {
     return
   }
   
-  // 주소를 좌표로 변환
-  const validRowsWithGeo = []
-  for (const row of state.uploadPreviewData.validRows) {
-    const geoData = await geocodeAddress(row.address)
-    validRowsWithGeo.push({
-      ...row,
-      latitude: geoData?.latitude,
-      longitude: geoData?.longitude
+  try {
+    // 즉시 로딩 화면으로 전환
+    const summaryEl = document.getElementById('validationSummary')
+    const previewEl = document.getElementById('dataPreview')
+    
+    summaryEl.innerHTML = `
+      <div class="flex items-center justify-center py-12">
+        <div class="text-center">
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p class="text-gray-600 text-lg font-semibold">고객 데이터를 업로드하는 중...</p>
+          <p class="text-gray-500 text-sm mt-2">잠시만 기다려주세요</p>
+        </div>
+      </div>
+    `
+    previewEl.innerHTML = ''
+    
+    // 주소를 좌표로 변환 (병렬 처리로 속도 향상)
+    const geocodePromises = state.uploadPreviewData.validRows.map(async (row) => {
+      const geoData = await geocodeAddress(row.address)
+      return {
+        ...row,
+        latitude: geoData?.latitude,
+        longitude: geoData?.longitude
+      }
     })
+    
+    const validRowsWithGeo = await Promise.all(geocodePromises)
+    
+    // 데이터 업로드
+    await batchUploadCustomers(validRowsWithGeo)
+    
+    // 완료 후 모달 닫기
+    closeUploadModal()
+    showToast('고객 데이터가 성공적으로 업로드되었습니다', 'success')
+    
+    // 대시보드 업데이트
+    updateDashboardStats()
+    renderCustomerTable()
+  } catch (error) {
+    console.error('업로드 오류:', error)
+    showToast('업로드 중 오류가 발생했습니다: ' + error.message, 'error')
   }
-  
-  await batchUploadCustomers(validRowsWithGeo)
-  closeUploadModal()
-  updateDashboardStats()
-  renderCustomerTable()
 }
 
 function showCustomerDetail(customerId) {
