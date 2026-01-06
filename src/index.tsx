@@ -4,6 +4,10 @@ import { serveStatic } from '@hono/node-server/serve-static'
 
 const app = new Hono()
 
+// 메모리 기반 데이터 저장소 (서버 재시작 시 초기화됨)
+let customers: any[] = []
+let nextCustomerId = 1
+
 // CORS 설정
 app.use('/api/*', cors())
 
@@ -52,51 +56,9 @@ app.post('/api/auth/login', async (c) => {
 // 모든 고객 조회
 app.get('/api/customers', async (c) => {
   try {
-    // 하드코딩된 테스트 데이터
-    const testCustomers = [
-      {
-        id: 1,
-        customer_name: '김철수',
-        phone: '010-1234-5678',
-        email: 'kim@example.com',
-        address: '서울특별시 강남구 테헤란로 123',
-        address_detail: '456호',
-        latitude: 37.5012,
-        longitude: 127.0396,
-        memo: '중요 고객',
-        created_at: '2024-01-15 10:30:00',
-        updated_at: '2024-01-15 10:30:00'
-      },
-      {
-        id: 2,
-        customer_name: '이영희',
-        phone: '010-2345-6789',
-        email: 'lee@example.com',
-        address: '서울특별시 서초구 서초대로 78길 22',
-        address_detail: '101동 203호',
-        latitude: 37.4833,
-        longitude: 127.0322,
-        memo: 'VIP 고객',
-        created_at: '2024-01-16 14:20:00',
-        updated_at: '2024-01-16 14:20:00'
-      },
-      {
-        id: 3,
-        customer_name: '박민수',
-        phone: '010-3456-7890',
-        email: 'park@example.com',
-        address: '서울특별시 송파구 올림픽로 300',
-        address_detail: '롯데월드타워 10층',
-        latitude: 37.5125,
-        longitude: 127.1025,
-        memo: '신규 고객',
-        created_at: '2024-01-17 09:15:00',
-        updated_at: '2024-01-17 09:15:00'
-      }
-    ]
-    
-    return c.json({ success: true, customers: testCustomers })
+    return c.json({ success: true, customers: customers })
   } catch (error) {
+    console.error('고객 목록 조회 오류:', error)
     return c.json({ success: false, message: '고객 목록 조회 중 오류가 발생했습니다.' }, 500)
   }
 })
@@ -199,10 +161,7 @@ app.post('/api/customers/validate', async (c) => {
     const duplicates: any[] = []
     
     // 기존 고객 주소 목록 조회 (중복 체크용)
-    const { results: existingCustomers } = await c.env.DB.prepare(
-      'SELECT address FROM customers'
-    ).all()
-    const existingAddresses = new Set(existingCustomers.map((c: any) => c.address))
+    const existingAddresses = new Set(customers.map((c: any) => c.address))
     
     // 현재 데이터 내 주소 중복 체크
     const currentAddresses = new Set()
@@ -279,22 +238,33 @@ app.post('/api/customers/batch-upload', async (c) => {
     
     for (const row of data) {
       try {
-        await c.env.DB.prepare(
-          `INSERT INTO customers (customer_name, phone, email, address, address_detail, latitude, longitude, memo, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(
-          row.customer_name,
-          row.phone || null,
-          row.email || null,
-          row.address,
-          row.address_detail || null,
-          row.latitude || null,
-          row.longitude || null,
-          row.memo || null,
-          userId
-        ).run()
+        const newCustomer = {
+          id: nextCustomerId++,
+          sequence: row.sequence || null,
+          count: row.count || null,
+          receipt_date: row.receipt_date || new Date().toISOString().split('T')[0],
+          company: row.company || null,
+          category: row.category || null,
+          customer_name: row.customer_name,
+          phone: row.phone || null,
+          install_date: row.install_date || null,
+          heat_source: row.heat_source || null,
+          address: row.address,
+          as_content: row.as_content || null,
+          install_team: row.install_team || null,
+          region: row.region || null,
+          receptionist: row.receptionist || null,
+          as_result: row.as_result || null,
+          latitude: row.latitude || null,
+          longitude: row.longitude || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        
+        customers.push(newCustomer)
         successCount++
       } catch (error) {
+        console.error('고객 추가 오류:', error)
         failCount++
       }
     }
@@ -383,8 +353,10 @@ app.get('/', (c) => {
         <title>고객관리 시스템</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-        <!-- T Map API -->
+        <!-- T Map API (지도 표시용) -->
         <script src="https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=vSWmSa8CcO4uvyc0EsAg46SWvxNVAKzL8KGbckPB"></script>
+        <!-- Kakao JavaScript API (길 안내용) -->
+        <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=c933c69ba4e0228895438c6a8c327e74&libraries=services"></script>
         <!-- SheetJS for Excel file parsing -->
         <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     </head>

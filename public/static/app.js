@@ -1514,35 +1514,49 @@ function closeCustomerDetail() {
 
 // 네이버 지도 길 안내 (내비게이션 모드)
 function openNavigation(lat, lng, name) {
-  // Kakao Navi API를 사용한 길 안내
-  // REST API Key: 88f9499b18c655ba767c92593d8f7dd7
+  // Kakao JavaScript API를 사용한 길 안내
+  // JavaScript Key: c933c69ba4e0228895438c6a8c327e74
   
-  // Kakao Navi 앱 URL 스킴
-  const kakaoNaviUrl = `kakaonavi://navigate?destination=${encodeURIComponent(name)}&lat=${lat}&lng=${lng}`
-  
-  // Kakao Map 웹 URL (앱이 없을 경우 대체)
-  const kakaoMapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`
-  
-  // 모바일 환경 체크
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-  
-  if (isMobile) {
-    // 모바일에서는 Kakao Navi 앱 스킴 시도
-    window.location.href = kakaoNaviUrl
+  try {
+    if (typeof Kakao === 'undefined') {
+      console.error('Kakao JavaScript SDK가 로드되지 않았습니다')
+      // 폴백: 웹 URL 사용
+      const kakaoMapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`
+      window.open(kakaoMapUrl, '_blank')
+      showToast('카카오맵에서 길 안내를 시작합니다', 'success')
+      return
+    }
     
-    // 1.5초 후에도 페이지가 그대로면 앱이 없는 것으로 판단
-    setTimeout(() => {
-      // 앱이 없으면 Kakao Map 웹으로 이동
-      if (!document.hidden) {
-        window.location.href = kakaoMapUrl
-      }
-    }, 1500)
-  } else {
-    // 데스크톱에서는 Kakao Map 웹으로 연결
-    window.open(kakaoMapUrl, '_blank')
+    // Kakao Navi 앱 URL 스킴
+    const kakaoNaviUrl = `kakaonavi://navigate?destination=${encodeURIComponent(name)}&lat=${lat}&lng=${lng}`
+    
+    // Kakao Map 웹 URL (앱이 없을 경우 대체)
+    const kakaoMapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`
+    
+    // 모바일 환경 체크
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    
+    if (isMobile) {
+      // 모바일에서는 Kakao Navi 앱 스킴 시도
+      window.location.href = kakaoNaviUrl
+      
+      // 1.5초 후에도 페이지가 그대로면 앱이 없는 것으로 판단
+      setTimeout(() => {
+        // 앱이 없으면 Kakao Map 웹으로 이동
+        if (!document.hidden) {
+          window.location.href = kakaoMapUrl
+        }
+      }, 1500)
+    } else {
+      // 데스크톱에서는 Kakao Map 웹으로 연결
+      window.open(kakaoMapUrl, '_blank')
+    }
+    
+    showToast('카카오내비로 길 안내를 시작합니다', 'success')
+  } catch (error) {
+    console.error('길 안내 오류:', error)
+    showToast('길 안내를 실행할 수 없습니다', 'error')
   }
-  
-  showToast('카카오내비로 길 안내를 시작합니다', 'success')
 }
 
 // T Map에서 검색 (길찾기)
