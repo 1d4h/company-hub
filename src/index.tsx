@@ -8,6 +8,29 @@ const app = new Hono()
 let customers: any[] = []
 let nextCustomerId = 1
 
+// 회원 관리
+let users: any[] = [
+  // 기본 관리자 (앱 개발자)
+  { 
+    id: 1, 
+    username: 'developer', 
+    password: 'dev123!@#', 
+    role: 'admin', 
+    name: '개발자',
+    phone: '010-7597-4541',
+    status: 'approved',
+    created_at: new Date().toISOString()
+  }
+]
+let nextUserId = 2
+
+// 승인 대기 회원
+let pendingUsers: any[] = []
+let nextPendingId = 1
+
+// 활성 세션 (동시 로그인 제한)
+let activeSessions: any[] = []
+
 // CORS 설정
 app.use('/api/*', cors())
 
@@ -23,17 +46,38 @@ app.post('/api/auth/login', async (c) => {
   try {
     const { username, password } = await c.req.json()
     
-    // 하드코딩된 테스트 사용자
-    const testUsers = [
-      { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: '관리자' },
-      { id: 2, username: 'user', password: 'user123', role: 'user', name: '사용자' }
-    ]
-    
-    const user = testUsers.find(u => u.username === username && u.password === password)
+    // 회원 찾기
+    const user = users.find(u => u.username === username && u.password === password)
     
     if (!user) {
       return c.json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' }, 401)
     }
+    
+    // 승인 상태 확인
+    if (user.status !== 'approved') {
+      return c.json({ success: false, message: '승인 대기 중입니다. 관리자의 승인을 기다려주세요.' }, 403)
+    }
+    
+    // 동시 로그인 제한 확인
+    const roleLimit = user.role === 'admin' ? 3 : 10
+    const currentSessions = activeSessions.filter(s => s.role === user.role)
+    
+    if (currentSessions.length >= roleLimit) {
+      return c.json({ 
+        success: false, 
+        message: `${user.role === 'admin' ? '관리자' : '사용자'} 최대 동시 접속 인원(${roleLimit}명)을 초과했습니다.` 
+      }, 403)
+    }
+    
+    // 세션 생성
+    const sessionId = `${Date.now()}-${Math.random()}`
+    activeSessions.push({
+      sessionId,
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      loginAt: new Date().toISOString()
+    })
     
     return c.json({ 
       success: true, 
@@ -41,11 +85,151 @@ app.post('/api/auth/login', async (c) => {
         id: user.id,
         username: user.username,
         role: user.role,
-        name: user.name
-      }
+        name: user.name,
+        phone: user.phone
+      },
+      sessionId
     })
   } catch (error) {
     return c.json({ success: false, message: '로그인 처리 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 회원가입 API
+app.post('/api/auth/register', async (c) => {
+  try {
+    const { username, password, name, phone } = await c.req.json()
+    
+    // 필수 필드 검증
+    if (!username || !password || !name || !phone) {
+      return c.json({ success: false, message: '모든 필드를 입력해주세요.' }, 400)
+    }
+    
+    // 아이디 중복 체크
+    if (users.find(u => u.username === username)) {
+      return c.json({ success: false, message: '이미 사용 중인 아이디입니다.' }, 400)
+    }
+    
+    // 전화번호 중복 체크
+    if (users.find(u => u.phone === phone)) {
+      return c.json({ success: false, message: '이미 등록된 전화번호입니다.' }, 400)
+    }
+    
+    // 승인 대기 목록에 추가
+    const pendingUser = {
+      id: nextPendingId++,
+      username,
+      password,
+      name,
+      phone,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    }
+    
+    pendingUsers.push(pendingUser)
+    
+    // SMS 발송 (실제로는 SMS API 호출)
+    console.log(`📱 SMS 발송: 010-7597-4541`)
+    console.log(`내용: [고객관리시스템] 신규 회원가입 승인 요청`)
+    console.log(`- 이름: ${name}`)
+    console.log(`- 연락처: ${phone}`)
+    console.log(`- 아이디: ${username}`)
+    
+    return c.json({ 
+      success: true, 
+      message: '회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인 가능합니다.' 
+    })
+  } catch (error) {
+    return c.json({ success: false, message: '회원가입 처리 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 승인 대기 회원 목록 조회 (관리자 전용)
+app.get('/api/auth/pending', async (c) => {
+  try {
+    return c.json({ success: true, users: pendingUsers })
+  } catch (error) {
+    return c.json({ success: false, message: '목록 조회 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 회원 승인 (관리자 전용)
+app.post('/api/auth/approve', async (c) => {
+  try {
+    const { id, role } = await c.req.json()
+    
+    const pendingUser = pendingUsers.find(u => u.id === id)
+    if (!pendingUser) {
+      return c.json({ success: false, message: '해당 회원을 찾을 수 없습니다.' }, 404)
+    }
+    
+    // 승인된 회원으로 이동
+    const approvedUser = {
+      id: nextUserId++,
+      username: pendingUser.username,
+      password: pendingUser.password,
+      name: pendingUser.name,
+      phone: pendingUser.phone,
+      role: role || 'user',
+      status: 'approved',
+      created_at: pendingUser.created_at,
+      approved_at: new Date().toISOString()
+    }
+    
+    users.push(approvedUser)
+    pendingUsers = pendingUsers.filter(u => u.id !== id)
+    
+    console.log(`✅ 회원 승인: ${approvedUser.name} (${approvedUser.username})`)
+    
+    return c.json({ success: true, message: '회원이 승인되었습니다.' })
+  } catch (error) {
+    return c.json({ success: false, message: '승인 처리 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 회원 거절 (관리자 전용)
+app.post('/api/auth/reject', async (c) => {
+  try {
+    const { id } = await c.req.json()
+    
+    pendingUsers = pendingUsers.filter(u => u.id !== id)
+    
+    return c.json({ success: true, message: '회원 신청이 거절되었습니다.' })
+  } catch (error) {
+    return c.json({ success: false, message: '거절 처리 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 전체 회원 목록 조회 (관리자 전용)
+app.get('/api/users', async (c) => {
+  try {
+    return c.json({ 
+      success: true, 
+      users: users.map(u => ({
+        id: u.id,
+        username: u.username,
+        name: u.name,
+        phone: u.phone,
+        role: u.role,
+        status: u.status,
+        created_at: u.created_at
+      }))
+    })
+  } catch (error) {
+    return c.json({ success: false, message: '목록 조회 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 로그아웃 API
+app.post('/api/auth/logout', async (c) => {
+  try {
+    const { sessionId } = await c.req.json()
+    
+    activeSessions = activeSessions.filter(s => s.sessionId !== sessionId)
+    
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ success: false, message: '로그아웃 처리 중 오류가 발생했습니다.' }, 500)
   }
 })
 

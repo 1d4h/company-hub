@@ -286,10 +286,15 @@ function renderLogin() {
           </button>
         </form>
         
-        <div class="mt-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
-          <p class="font-semibold mb-2">테스트 계정:</p>
-          <p>관리자: admin / admin123</p>
-          <p>사용자: user / user123</p>
+        <button 
+          onclick="renderRegister()" 
+          class="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold"
+        >
+          <i class="fas fa-user-plus mr-2"></i>회원가입
+        </button>
+        
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-600 text-center">
+          <p class="text-xs">계정이 없으신가요? 회원가입 후 관리자 승인이 필요합니다.</p>
         </div>
       </div>
     </div>
@@ -308,6 +313,158 @@ function renderLogin() {
       } else {
         renderUserMap()
       }
+    }
+  })
+}
+
+// 회원가입 화면
+function renderRegister() {
+  const app = document.getElementById('app')
+  app.innerHTML = `
+    <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-500 to-blue-600 p-4">
+      <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="text-center mb-8">
+          <i class="fas fa-user-plus text-5xl text-green-600 mb-4"></i>
+          <h1 class="text-3xl font-bold text-gray-800">회원가입</h1>
+          <p class="text-gray-600 mt-2">관리자 승인 후 이용 가능합니다</p>
+        </div>
+        
+        <form id="registerForm" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              <i class="fas fa-user mr-2"></i>성명 *
+            </label>
+            <input 
+              type="text" 
+              id="registerName" 
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="이름을 입력하세요"
+              required
+            />
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              <i class="fas fa-phone mr-2"></i>연락처 *
+            </label>
+            <input 
+              type="tel" 
+              id="registerPhone" 
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="010-0000-0000"
+              pattern="[0-9]{3}-[0-9]{4}-[0-9]{4}"
+              required
+            />
+            <p class="text-xs text-gray-500 mt-1">형식: 010-0000-0000</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              <i class="fas fa-id-card mr-2"></i>아이디 *
+            </label>
+            <input 
+              type="text" 
+              id="registerUsername" 
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="아이디를 입력하세요"
+              minlength="4"
+              required
+            />
+            <p class="text-xs text-gray-500 mt-1">4자 이상 입력</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              <i class="fas fa-lock mr-2"></i>비밀번호 *
+            </label>
+            <input 
+              type="password" 
+              id="registerPassword" 
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="비밀번호를 입력하세요"
+              minlength="6"
+              required
+            />
+            <p class="text-xs text-gray-500 mt-1">6자 이상 입력</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              <i class="fas fa-lock mr-2"></i>비밀번호 확인 *
+            </label>
+            <input 
+              type="password" 
+              id="registerPasswordConfirm" 
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="비밀번호를 다시 입력하세요"
+              required
+            />
+          </div>
+          
+          <div class="pt-4">
+            <button 
+              type="submit" 
+              class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold"
+            >
+              <i class="fas fa-user-plus mr-2"></i>가입 신청
+            </button>
+          </div>
+        </form>
+        
+        <button 
+          onclick="renderLogin()" 
+          class="w-full mt-4 bg-gray-500 text-white py-3 rounded-lg hover:bg-gray-600 transition"
+        >
+          <i class="fas fa-arrow-left mr-2"></i>로그인으로 돌아가기
+        </button>
+        
+        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
+          <p class="font-semibold text-yellow-800 mb-2">
+            <i class="fas fa-info-circle mr-1"></i>안내사항
+          </p>
+          <ul class="text-yellow-700 space-y-1 text-xs">
+            <li>• 회원가입 신청 시 관리자에게 SMS가 발송됩니다</li>
+            <li>• 관리자 승인 후 로그인 가능합니다</li>
+            <li>• 승인 여부는 SMS로 안내됩니다</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  `
+  
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    
+    const name = document.getElementById('registerName').value
+    const phone = document.getElementById('registerPhone').value
+    const username = document.getElementById('registerUsername').value
+    const password = document.getElementById('registerPassword').value
+    const passwordConfirm = document.getElementById('registerPasswordConfirm').value
+    
+    // 비밀번호 확인
+    if (password !== passwordConfirm) {
+      showToast('비밀번호가 일치하지 않습니다', 'error')
+      return
+    }
+    
+    try {
+      const response = await axios.post('/api/auth/register', {
+        name,
+        phone,
+        username,
+        password
+      })
+      
+      if (response.data.success) {
+        showToast(response.data.message, 'success')
+        setTimeout(() => {
+          renderLogin()
+        }, 2000)
+      } else {
+        showToast(response.data.message, 'error')
+      }
+    } catch (error) {
+      showToast('회원가입 중 오류가 발생했습니다', 'error')
     }
   })
 }
