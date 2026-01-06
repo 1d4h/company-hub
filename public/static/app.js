@@ -317,6 +317,22 @@ function renderLogin() {
   })
 }
 
+// 비밀번호 표시/숨김 토글 함수
+function togglePasswordVisibility(inputId, iconId) {
+  const input = document.getElementById(inputId)
+  const icon = document.getElementById(iconId)
+  
+  if (input.type === 'password') {
+    input.type = 'text'
+    icon.classList.remove('fa-eye')
+    icon.classList.add('fa-eye-slash')
+  } else {
+    input.type = 'password'
+    icon.classList.remove('fa-eye-slash')
+    icon.classList.add('fa-eye')
+  }
+}
+
 // 회원가입 화면
 function renderRegister() {
   const app = document.getElementById('app')
@@ -379,14 +395,23 @@ function renderRegister() {
             <label class="block text-sm font-medium text-gray-700 mb-2">
               <i class="fas fa-lock mr-2"></i>비밀번호 *
             </label>
-            <input 
-              type="password" 
-              id="registerPassword" 
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="abc123"
-              minlength="6"
-              required
-            />
+            <div class="relative">
+              <input 
+                type="password" 
+                id="registerPassword" 
+                class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="abc123"
+                minlength="6"
+                required
+              />
+              <button 
+                type="button"
+                onclick="togglePasswordVisibility('registerPassword', 'togglePasswordIcon1')"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                <i id="togglePasswordIcon1" class="fas fa-eye"></i>
+              </button>
+            </div>
             <p class="text-xs text-gray-500 mt-1">영어+숫자 조합 6자 이상 (예: pass1234)</p>
           </div>
           
@@ -394,13 +419,22 @@ function renderRegister() {
             <label class="block text-sm font-medium text-gray-700 mb-2">
               <i class="fas fa-lock mr-2"></i>비밀번호 확인 *
             </label>
-            <input 
-              type="password" 
-              id="registerPasswordConfirm" 
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="비밀번호를 다시 입력하세요"
-              required
-            />
+            <div class="relative">
+              <input 
+                type="password" 
+                id="registerPasswordConfirm" 
+                class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="비밀번호를 다시 입력하세요"
+                required
+              />
+              <button 
+                type="button"
+                onclick="togglePasswordVisibility('registerPasswordConfirm', 'togglePasswordIcon2')"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                <i id="togglePasswordIcon2" class="fas fa-eye"></i>
+              </button>
+            </div>
           </div>
           
           <div class="pt-4">
@@ -471,12 +505,16 @@ function renderRegister() {
     }
     
     try {
+      console.log('📤 회원가입 요청:', { name, phone, username, password: '***' })
+      
       const response = await axios.post('/api/auth/register', {
         name,
         phone,
         username,
         password
       })
+      
+      console.log('📥 회원가입 응답:', response.data)
       
       if (response.data.success) {
         showToast(response.data.message, 'success')
@@ -487,7 +525,14 @@ function renderRegister() {
         showToast(response.data.message, 'error')
       }
     } catch (error) {
-      showToast('회원가입 중 오류가 발생했습니다', 'error')
+      console.error('❌ 회원가입 오류:', error)
+      console.error('❌ 오류 상세:', error.response?.data)
+      
+      if (error.response?.data?.message) {
+        showToast(error.response.data.message, 'error')
+      } else {
+        showToast('회원가입 중 오류가 발생했습니다. 입력 정보를 다시 확인해주세요.', 'error')
+      }
     }
   })
 }

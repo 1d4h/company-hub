@@ -98,10 +98,14 @@ app.post('/api/auth/login', async (c) => {
 // 회원가입 API
 app.post('/api/auth/register', async (c) => {
   try {
-    const { username, password, name, phone } = await c.req.json()
+    const body = await c.req.json()
+    console.log('📥 회원가입 요청 수신:', { ...body, password: '***' })
+    
+    const { username, password, name, phone } = body
     
     // 필수 필드 검증
     if (!username || !password || !name || !phone) {
+      console.log('❌ 필수 필드 누락')
       return c.json({ success: false, message: '모든 필드를 입력해주세요.' }, 400)
     }
     
@@ -152,12 +156,14 @@ app.post('/api/auth/register', async (c) => {
     console.log(`- 이름: ${name}`)
     console.log(`- 연락처: ${phone}`)
     console.log(`- 아이디: ${username}`)
+    console.log(`✅ 회원가입 신청 완료 - 승인 대기 목록에 추가됨`)
     
     return c.json({ 
       success: true, 
       message: '회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인 가능합니다.' 
     })
   } catch (error) {
+    console.error('❌ 회원가입 처리 오류:', error)
     return c.json({ success: false, message: '회원가입 처리 중 오류가 발생했습니다.' }, 500)
   }
 })
