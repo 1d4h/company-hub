@@ -1486,8 +1486,8 @@ function showCustomerDetail(customerId) {
       
       <div class="pt-4 border-t">
         ${customer.latitude && customer.longitude ? `
-        <button onclick="openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          <i class="fas fa-route mr-2"></i>T Map에서 길 안내
+        <button onclick="openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition">
+          <i class="fas fa-location-arrow mr-2"></i>카카오내비에서 길 안내
         </button>
         ` : ''}
       </div>
@@ -1514,27 +1514,35 @@ function closeCustomerDetail() {
 
 // 네이버 지도 길 안내 (내비게이션 모드)
 function openNavigation(lat, lng, name) {
-  // T Map 앱 또는 웹 내비게이션으로 연결
-  // T Map 앱이 설치되어 있으면 앱으로, 없으면 웹으로 연결
-  const tmapAppUrl = `tmap://route?goalname=${encodeURIComponent(name)}&goalx=${lng}&goaly=${lat}`
-  const tmapWebUrl = `https://apis.openapi.sk.com/tmap/app/routes?appKey=l7xxd0e0d0d0d0d0d0d0d0d0d0d0d0d0&name=${encodeURIComponent(name)}&lon=${lng}&lat=${lat}`
+  // Kakao Navi API를 사용한 길 안내
+  // REST API Key: 88f9499b18c655ba767c92593d8f7dd7
+  
+  // Kakao Navi 앱 URL 스킴
+  const kakaoNaviUrl = `kakaonavi://navigate?destination=${encodeURIComponent(name)}&lat=${lat}&lng=${lng}`
+  
+  // Kakao Map 웹 URL (앱이 없을 경우 대체)
+  const kakaoMapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`
   
   // 모바일 환경 체크
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
   
   if (isMobile) {
-    // 모바일에서는 T Map 앱 스킴 시도
-    window.location.href = tmapAppUrl
+    // 모바일에서는 Kakao Navi 앱 스킴 시도
+    window.location.href = kakaoNaviUrl
+    
+    // 1.5초 후에도 페이지가 그대로면 앱이 없는 것으로 판단
     setTimeout(() => {
-      // 앱이 없으면 T Map 모바일 웹으로 이동
-      window.open(`https://m.tmap.co.kr/tmap2/mobile/route.jsp?name=${encodeURIComponent(name)}&lon=${lng}&lat=${lat}`, '_blank')
+      // 앱이 없으면 Kakao Map 웹으로 이동
+      if (!document.hidden) {
+        window.location.href = kakaoMapUrl
+      }
     }, 1500)
   } else {
-    // 데스크톱에서는 T Map 웹으로 연결
-    window.open(`https://www.tmap.co.kr/tmap2/mobile/route.jsp?name=${encodeURIComponent(name)}&lon=${lng}&lat=${lat}`, '_blank')
+    // 데스크톱에서는 Kakao Map 웹으로 연결
+    window.open(kakaoMapUrl, '_blank')
   }
   
-  showToast('T Map에서 길 안내를 시작합니다', 'success')
+  showToast('카카오내비로 길 안내를 시작합니다', 'success')
 }
 
 // T Map에서 검색 (길찾기)
