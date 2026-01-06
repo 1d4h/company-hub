@@ -436,7 +436,7 @@ function renderAdminDashboard() {
                 <i class="fas fa-download mr-2"></i>샘플 파일 다운로드
               </p>
               <button onclick="downloadSampleExcel()" class="text-sm text-blue-700 hover:text-blue-900 underline">
-                고객정보_샘플.xlsx 다운로드
+                AS접수현황_템플릿.xlsx 다운로드
               </button>
             </div>
           </div>
@@ -568,7 +568,9 @@ function renderCustomerList() {
       <div class="flex items-start justify-between">
         <div class="flex-1">
           <p class="font-semibold text-gray-800">${customer.customer_name}</p>
+          <p class="text-xs text-blue-600 font-medium">${customer.region || ''}</p>
           <p class="text-sm text-gray-600 truncate mt-1">${customer.address}</p>
+          <p class="text-xs text-gray-500 mt-1">${customer.as_content || ''}</p>
           ${customer.phone ? `<p class="text-xs text-gray-500 mt-1"><i class="fas fa-phone mr-1"></i>${customer.phone}</p>` : ''}
         </div>
         <div class="ml-2">
@@ -855,12 +857,12 @@ async function handleFileSelect(event) {
 
 // 샘플 Excel 파일 다운로드
 function downloadSampleExcel() {
-  // 샘플 데이터 생성
+  // 샘플 데이터 생성 (실제 업무 양식)
   const sampleData = [
-    ['customer_name', 'phone', 'email', 'address', 'address_detail', 'memo'],
-    ['김철수', '010-1234-5678', 'kim@example.com', '서울특별시 강남구 테헤란로 123', '456호', '중요 고객'],
-    ['이영희', '010-2345-6789', 'lee@example.com', '서울특별시 서초구 서초대로 45', '101호', '정기 방문'],
-    ['박민수', '010-3456-7890', 'park@example.com', '서울특별시 송파구 올림픽로 300', '202호', '신규 고객']
+    ['순번', '횟수', '접수일자', '업체', '구분', '고객명', '전화번호', '설치연,월', '열원', '주소', 'AS접수내용', '설치팀', '지역', '접수자', 'AS결과'],
+    [1, 1, '2024-01-15', '서울지사', 'AS', '김철수', '010-1234-5678', '2023-12', '가스', '서울특별시 강남구 테헤란로 123', '온수 온도 조절 불량', '1팀', '강남', '홍길동', '수리 완료'],
+    [2, 1, '2024-01-16', '서울지사', 'AS', '이영희', '010-2345-6789', '2023-11', '전기', '서울특별시 서초구 서초대로 78길 22', '난방 작동 불량', '2팀', '서초', '김영희', '부품 교체 완료'],
+    [3, 2, '2024-01-17', '서울지사', 'AS', '박민수', '010-3456-7890', '2023-10', '가스', '서울특별시 송파구 올림픽로 300', '보일러 소음 발생', '1팀', '송파', '홍길동', '점검 완료']
   ]
   
   // 워크북 생성
@@ -869,19 +871,28 @@ function downloadSampleExcel() {
   
   // 열 너비 설정
   ws['!cols'] = [
-    { wch: 15 },  // customer_name
-    { wch: 15 },  // phone
-    { wch: 25 },  // email
-    { wch: 40 },  // address
-    { wch: 15 },  // address_detail
-    { wch: 20 }   // memo
+    { wch: 8 },   // 순번
+    { wch: 8 },   // 횟수
+    { wch: 12 },  // 접수일자
+    { wch: 12 },  // 업체
+    { wch: 8 },   // 구분
+    { wch: 12 },  // 고객명
+    { wch: 15 },  // 전화번호
+    { wch: 12 },  // 설치연,월
+    { wch: 8 },   // 열원
+    { wch: 40 },  // 주소
+    { wch: 30 },  // AS접수내용
+    { wch: 10 },  // 설치팀
+    { wch: 10 },  // 지역
+    { wch: 10 },  // 접수자
+    { wch: 20 }   // AS결과
   ]
   
-  XLSX.utils.book_append_sheet(wb, ws, '고객정보')
+  XLSX.utils.book_append_sheet(wb, ws, 'AS접수현황')
   
   // 파일 다운로드
-  XLSX.writeFile(wb, '고객정보_샘플.xlsx')
-  showToast('샘플 파일이 다운로드되었습니다', 'success')
+  XLSX.writeFile(wb, 'AS접수현황_템플릿.xlsx')
+  showToast('템플릿 파일이 다운로드되었습니다', 'success')
 }
 
 function renderValidationSummary(validation) {
@@ -1037,29 +1048,38 @@ function showCustomerDetail(customerId) {
       </div>
       
       <div>
-        <p class="text-sm text-gray-600">이메일</p>
-        <p class="text-gray-800">${customer.email || '-'}</p>
-      </div>
-      
-      <div>
         <p class="text-sm text-gray-600">주소</p>
         <p class="text-gray-800">${customer.address}</p>
-        ${customer.address_detail ? `<p class="text-sm text-gray-600 mt-1">${customer.address_detail}</p>` : ''}
       </div>
       
       <div>
-        <p class="text-sm text-gray-600">위치 정보</p>
-        ${customer.latitude && customer.longitude 
-          ? `<p class="text-gray-800">위도: ${customer.latitude.toFixed(4)}, 경도: ${customer.longitude.toFixed(4)}</p>`
-          : '<p class="text-gray-500">미등록</p>'}
+        <p class="text-sm text-gray-600">지역</p>
+        <p class="text-gray-800">${customer.region || '-'}</p>
       </div>
       
-      ${customer.memo ? `
       <div>
-        <p class="text-sm text-gray-600">메모</p>
-        <p class="text-gray-800">${customer.memo}</p>
+        <p class="text-sm text-gray-600">AS접수내용</p>
+        <p class="text-gray-800">${customer.as_content || '-'}</p>
+      </div>
+      
+      ${customer.as_result ? `
+      <div>
+        <p class="text-sm text-gray-600">AS결과</p>
+        <p class="text-gray-800">${customer.as_result}</p>
       </div>
       ` : ''}
+      
+      ${customer.install_team ? `
+      <div>
+        <p class="text-sm text-gray-600">설치팀</p>
+        <p class="text-gray-800">${customer.install_team}</p>
+      </div>
+      ` : ''}
+      
+      <div>
+        <p class="text-sm text-gray-600">접수일자</p>
+        <p class="text-gray-800">${customer.receipt_date || customer.created_at || '-'}</p>
+      </div>
       
       <div class="pt-4 border-t space-y-2">
         ${customer.latitude && customer.longitude ? `
@@ -1068,7 +1088,7 @@ function showCustomerDetail(customerId) {
         </button>
         ` : ''}
         <button onclick="openDirections('${customer.address.replace(/'/g, "\\'")}')" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-          <i class="fas fa-search-location mr-2"></i>네이버 지도에서 보기
+          <i class="fas fa-search-location mr-2"></i>T Map에서 보기
         </button>
       </div>
     </div>
