@@ -479,11 +479,6 @@ function renderAdminDashboard() {
               </div>
             </div>
           </div>
-          
-          <div id="uploadStep2" class="hidden">
-            <div id="validationSummary" class="mb-6"></div>
-            <div id="dataPreview"></div>
-          </div>
         </div>
       </div>
     </div>
@@ -1033,10 +1028,8 @@ function openUploadModal() {
 
 function closeUploadModal() {
   document.getElementById('uploadModal').classList.add('hidden')
-  state.uploadPreviewData = null
   state.uploadFile = null
   state.uploadFileName = null
-  state.uploadRawData = null
   
   // 첨부 파일 목록 초기화
   const listEl = document.getElementById('attachedFilesList')
@@ -1048,10 +1041,6 @@ function closeUploadModal() {
       </p>
     `
   }
-  
-  // uploadStep1 보이기
-  document.getElementById('uploadStep1').classList.remove('hidden')
-  document.getElementById('uploadStep2').classList.add('hidden')
 }
 
 async function handleFileSelect(event) {
@@ -1154,20 +1143,12 @@ async function validateAttachedFile() {
   }
   
   try {
-    // 즉시 다음 화면으로 전환 (로딩 표시)
-    document.getElementById('uploadStep1').classList.add('hidden')
-    document.getElementById('uploadStep2').classList.remove('hidden')
+    // 업로드 확인
+    const confirmed = confirm(`${state.uploadFileName} 파일을 업로드하시겠습니까?`)
+    if (!confirmed) return
     
-    // 로딩 표시
-    const summaryEl = document.getElementById('validationSummary')
-    summaryEl.innerHTML = `
-      <div class="flex items-center justify-center py-12">
-        <div class="text-center">
-          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p class="text-gray-600">파일을 검증하는 중...</p>
-        </div>
-      </div>
-    `
+    // 로딩 토스트
+    showToast('파일을 업로드하는 중...', 'info')
     
     // Excel 파일 파싱
     const data = await parseExcel(state.uploadFile)
@@ -1177,24 +1158,48 @@ async function validateAttachedFile() {
       return
     }
     
-    // 원본 데이터 저장
-    state.uploadRawData = data
+    console.log('📊 파싱된 데이터:', data)
     
-    // 데이터 검증
-    const validation = await validateCustomerData(data)
-    if (!validation) return
+    // 지오코딩 (주소 → 좌표 변환)
+    showToast('주소를 좌표로 변환하는 중...', 'info')
     
-    state.uploadPreviewData = validation
+    const dataWithGeo = await Promise.all(
+      data.map(async (row) => {
+        // 주소가 있으면 지오코딩
+        if (row.address && row.address.trim() !== '') {
+          const geoData = await geocodeAddress(row.address)
+          return {
+            ...row,
+            latitude: geoData?.latitude,
+            longitude: geoData?.longitude
+          }
+        }
+        return row
+      })
+    )
     
-    // 검증 결과 표시
-    renderFileInfo()
-    renderValidationSummary(validation)
-    renderDataPreview(validation)
+    console.log('🗺️ 지오코딩 완료:', dataWithGeo)
     
-    showToast('파일 검증이 완료되었습니다', 'success')
+    // 서버에 업로드
+    const response = await axios.post('/api/customers/batch-upload', {
+      data: dataWithGeo,
+      userId: state.currentUser.id
+    })
+    
+    if (response.data.success) {
+      showToast(`✅ ${response.data.summary.success}건의 고객 데이터가 업로드되었습니다`, 'success')
+      closeUploadModal()
+      
+      // 고객 목록 새로고침
+      await loadCustomers()
+      updateDashboardStats()
+      renderCustomerTable()
+    } else {
+      showToast('업로드 실패: ' + response.data.message, 'error')
+    }
   } catch (error) {
-    console.error('파일 검증 오류:', error)
-    showToast('파일을 검증할 수 없습니다: ' + error.message, 'error')
+    console.error('파일 업로드 오류:', error)
+    showToast('파일을 업로드할 수 없습니다: ' + error.message, 'error')
   }
 }
 
