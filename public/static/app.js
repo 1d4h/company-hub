@@ -530,7 +530,7 @@ function renderUserMap() {
     // DOM이 완전히 렌더링될 때까지 대기
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        // 네이버 맵 API 로드 시도
+        // T Map API 로드 시도
         const mapDiv = document.getElementById('map')
         if (!mapDiv) {
           console.error('❌ 지도 컨테이너를 찾을 수 없습니다')
@@ -538,11 +538,11 @@ function renderUserMap() {
           return
         }
         
-        if (typeof naver !== 'undefined' && naver.maps) {
-          console.log('✅ 네이버 지도 API 로드됨, 지도 초기화 시작...')
+        if (typeof Tmapv2 !== 'undefined') {
+          console.log('✅ T Map API 로드됨, 지도 초기화 시작...')
           initTMap()
         } else {
-          console.warn('⚠️ 네이버 지도 API를 사용할 수 없습니다')
+          console.warn('⚠️ T Map API를 사용할 수 없습니다')
           showMapFallback()
         }
       })
@@ -592,15 +592,15 @@ function showMapFallback() {
         <div class="mb-6">
           <i class="fas fa-map-marked-alt text-6xl text-blue-400 mb-4"></i>
         </div>
-        <h2 class="text-2xl font-bold text-gray-800 mb-3">네이버 지도 연동 대기 중</h2>
+        <h2 class="text-2xl font-bold text-gray-800 mb-3">T Map 로딩 중</h2>
         <p class="text-gray-600 mb-4">
-          네이버 클라우드 플랫폼에서 Web 서비스 URL 등록을 확인해주세요.
+          T Map API를 불러오는 중입니다. 잠시만 기다려주세요.
         </p>
         <div class="bg-white rounded-lg p-4 mb-4 text-left shadow-sm">
-          <p class="text-sm font-semibold text-gray-700 mb-2">등록 필요 URL:</p>
-          <code class="text-xs bg-gray-100 px-2 py-1 rounded block break-all text-blue-600">
-            https://3000-irn3f4j2vutvnwvbf7bwh-cc2fbc16.sandbox.novita.ai
-          </code>
+          <p class="text-sm font-semibold text-gray-700 mb-2">T Map API 상태:</p>
+          <p class="text-xs text-gray-600">
+            페이지를 새로고침하면 지도가 표시됩니다.
+          </p>
         </div>
         <p class="text-sm text-gray-500 mb-4">
           좌측 고객 목록에서 고객을 선택하여 상세 정보를 확인하고 길안내를 이용할 수 있습니다.
