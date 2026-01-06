@@ -92,8 +92,24 @@ app.post('/api/auth/login', async (c) => {
     const { username, password } = await c.req.json()
     
     const testUsers = [
+      // 기존 계정
       { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: '관리자' },
-      { id: 2, username: 'user', password: 'user123', role: 'user', name: '사용자' }
+      { id: 2, username: 'user', password: 'user123', role: 'user', name: '사용자' },
+      // 관리자 계정 3개
+      { id: 3, username: 'master1', password: 'master1', role: 'admin', name: '관리자1' },
+      { id: 4, username: 'master2', password: 'master2', role: 'admin', name: '관리자2' },
+      { id: 5, username: 'master3', password: 'master3', role: 'admin', name: '관리자3' },
+      // 사용자 계정 10개
+      { id: 6, username: 'test1', password: 'test1', role: 'user', name: '사용자1' },
+      { id: 7, username: 'test2', password: 'test2', role: 'user', name: '사용자2' },
+      { id: 8, username: 'test3', password: 'test3', role: 'user', name: '사용자3' },
+      { id: 9, username: 'test4', password: 'test4', role: 'user', name: '사용자4' },
+      { id: 10, username: 'test5', password: 'test5', role: 'user', name: '사용자5' },
+      { id: 11, username: 'test6', password: 'test6', role: 'user', name: '사용자6' },
+      { id: 12, username: 'test7', password: 'test7', role: 'user', name: '사용자7' },
+      { id: 13, username: 'test8', password: 'test8', role: 'user', name: '사용자8' },
+      { id: 14, username: 'test9', password: 'test9', role: 'user', name: '사용자9' },
+      { id: 15, username: 'test10', password: 'test10', role: 'user', name: '사용자10' }
     ]
     
     const user = testUsers.find(u => u.username === username && u.password === password)

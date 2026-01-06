@@ -286,8 +286,6 @@ function renderLogin() {
           </button>
         </form>
         
-        <!-- 회원가입 버튼 임시 비활성화 -->
-        <!--
         <button 
           onclick="renderRegister()" 
           class="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold"
@@ -298,15 +296,14 @@ function renderLogin() {
         <div class="mt-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-600 text-center">
           <p class="text-xs">계정이 없으신가요? 회원가입 후 관리자 승인이 필요합니다.</p>
         </div>
-        -->
         
-        <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
           <p class="font-semibold text-blue-800 mb-2">
             <i class="fas fa-info-circle mr-1"></i>테스트 계정 안내
           </p>
           <div class="text-blue-700 space-y-1 text-xs">
-            <p><strong>관리자:</strong> master1, master2, master3 (비밀번호 동일)</p>
-            <p><strong>사용자:</strong> test1 ~ test10 (비밀번호 동일)</p>
+            <p><strong>관리자:</strong> admin/admin123, master1~3/master1~3</p>
+            <p><strong>사용자:</strong> user/user123, test1~10/test1~10</p>
           </div>
         </div>
       </div>
