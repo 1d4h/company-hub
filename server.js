@@ -245,21 +245,26 @@ app.post('/api/customers/validate', async (c) => {
         errors.push('전화번호 형식이 올바르지 않습니다')
       }
       
-      if (mappedRow.address && existingAddresses.has(mappedRow.address)) {
-        errors.push('이미 등록된 주소입니다 (데이터베이스)')
-      }
+      // 중복 체크 (오류가 아닌 중복으로 분류)
+      let isDuplicate = false
       
-      if (mappedRow.address && currentAddresses.has(mappedRow.address)) {
-        errors.push('업로드 파일 내 중복된 주소입니다')
-        duplicates.push({ ...mappedRow, rowIndex: i + 1, errors })
+      if (mappedRow.address && existingAddresses.has(mappedRow.address)) {
+        isDuplicate = true
+        duplicates.push({ ...mappedRow, rowIndex: i + 1, reason: '이미 등록된 주소입니다 (데이터베이스)' })
+      } else if (mappedRow.address && currentAddresses.has(mappedRow.address)) {
+        isDuplicate = true
+        duplicates.push({ ...mappedRow, rowIndex: i + 1, reason: '업로드 파일 내 중복된 주소입니다' })
       } else if (mappedRow.address) {
         currentAddresses.add(mappedRow.address)
       }
       
-      if (errors.length > 0) {
-        invalidRows.push({ ...mappedRow, rowIndex: i + 1, errors })
-      } else {
-        validRows.push({ ...mappedRow, rowIndex: i + 1 })
+      // 중복이 아닌 경우에만 유효/오류로 분류
+      if (!isDuplicate) {
+        if (errors.length > 0) {
+          invalidRows.push({ ...mappedRow, rowIndex: i + 1, errors })
+        } else {
+          validRows.push({ ...mappedRow, rowIndex: i + 1 })
+        }
       }
     }
     

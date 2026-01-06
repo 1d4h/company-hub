@@ -1037,14 +1037,14 @@ function renderAttachedFile(file) {
           <i class="fas fa-external-link-alt mr-1"></i>Excel로 파일 열기
         </button>
         <button onclick="validateAttachedFile()" class="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition">
-          <i class="fas fa-check-circle mr-1"></i>검증 후 업로드
+          <i class="fas fa-upload mr-1"></i>업로드
         </button>
       </div>
     </div>
   `
 }
 
-// 첨부 파일 열기 (Excel 프로그램으로)
+// 첨부 파일 열기 (새 탭에서)
 function previewAttachedFile() {
   if (!state.uploadFile) {
     showToast('첨부된 파일이 없습니다', 'error')
@@ -1052,17 +1052,23 @@ function previewAttachedFile() {
   }
   
   try {
-    // 파일을 다운로드하여 Excel 프로그램으로 열기
+    // Blob URL 생성
     const url = URL.createObjectURL(state.uploadFile)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = state.uploadFileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
     
-    showToast('파일이 다운로드되었습니다. Excel로 열어서 확인하세요', 'success')
+    // 새 탭에서 파일 열기
+    const newWindow = window.open(url, '_blank')
+    
+    if (newWindow) {
+      showToast('새 탭에서 파일을 열었습니다', 'success')
+      
+      // 일정 시간 후 URL 해제
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+      }, 60000) // 1분 후
+    } else {
+      showToast('팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도하세요', 'error')
+      URL.revokeObjectURL(url)
+    }
   } catch (error) {
     console.error('파일 열기 오류:', error)
     showToast('파일을 열 수 없습니다: ' + error.message, 'error')
@@ -1271,6 +1277,39 @@ function renderDataPreview(validation) {
                   <td class="px-3 py-2">${row.customer_name || '-'}</td>
                   <td class="px-3 py-2">${row.address || '-'}</td>
                   <td class="px-3 py-2 text-red-600">${row.errors.join(', ')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `
+  }
+  
+  // 중복 데이터
+  if (validation.duplicates && validation.duplicates.length > 0) {
+    html += `
+      <div class="mb-6">
+        <h4 class="font-semibold text-yellow-700 mb-3">
+          <i class="fas fa-copy mr-2"></i>중복 데이터 (${validation.duplicates.length}건)
+        </h4>
+        <div class="overflow-x-auto max-h-60 overflow-y-auto border rounded-lg">
+          <table class="w-full text-sm">
+            <thead class="bg-yellow-50 sticky top-0">
+              <tr>
+                <th class="px-3 py-2 text-left">No</th>
+                <th class="px-3 py-2 text-left">고객명</th>
+                <th class="px-3 py-2 text-left">주소</th>
+                <th class="px-3 py-2 text-left">사유</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              ${validation.duplicates.map(row => `
+                <tr>
+                  <td class="px-3 py-2">${row.rowIndex}</td>
+                  <td class="px-3 py-2">${row.customer_name || '-'}</td>
+                  <td class="px-3 py-2">${row.address || '-'}</td>
+                  <td class="px-3 py-2 text-yellow-700">${row.reason || '중복된 주소'}</td>
                 </tr>
               `).join('')}
             </tbody>
