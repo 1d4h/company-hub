@@ -351,11 +351,12 @@ function renderRegister() {
               type="tel" 
               id="registerPhone" 
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="010-0000-0000"
-              pattern="[0-9]{3}-[0-9]{4}-[0-9]{4}"
+              placeholder="01012345678"
+              pattern="[0-9]{11}"
+              maxlength="11"
               required
             />
-            <p class="text-xs text-gray-500 mt-1">형식: 010-0000-0000</p>
+            <p class="text-xs text-gray-500 mt-1">숫자만 11자리 입력 (예: 01012345678)</p>
           </div>
           
           <div>
@@ -366,11 +367,12 @@ function renderRegister() {
               type="text" 
               id="registerUsername" 
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="아이디를 입력하세요"
+              placeholder="abc123"
+              pattern="[a-zA-Z0-9]{4,}"
               minlength="4"
               required
             />
-            <p class="text-xs text-gray-500 mt-1">4자 이상 입력</p>
+            <p class="text-xs text-gray-500 mt-1">영어+숫자 조합 4자 이상 (예: hong123)</p>
           </div>
           
           <div>
@@ -381,11 +383,11 @@ function renderRegister() {
               type="password" 
               id="registerPassword" 
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="비밀번호를 입력하세요"
+              placeholder="abc123"
               minlength="6"
               required
             />
-            <p class="text-xs text-gray-500 mt-1">6자 이상 입력</p>
+            <p class="text-xs text-gray-500 mt-1">영어+숫자 조합 6자 이상 (예: pass1234)</p>
           </div>
           
           <div>
@@ -435,11 +437,32 @@ function renderRegister() {
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault()
     
-    const name = document.getElementById('registerName').value
-    const phone = document.getElementById('registerPhone').value
-    const username = document.getElementById('registerUsername').value
+    const name = document.getElementById('registerName').value.trim()
+    const phone = document.getElementById('registerPhone').value.trim()
+    const username = document.getElementById('registerUsername').value.trim()
     const password = document.getElementById('registerPassword').value
     const passwordConfirm = document.getElementById('registerPasswordConfirm').value
+    
+    // 연락처 검증: 숫자만 11자리
+    const phoneRegex = /^010[0-9]{8}$/
+    if (!phoneRegex.test(phone)) {
+      showToast('연락처는 010으로 시작하는 11자리 숫자만 입력해주세요', 'error')
+      return
+    }
+    
+    // 아이디 검증: 영어+숫자 조합 4자 이상
+    const usernameRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])[a-zA-Z0-9]{4,}$/
+    if (!usernameRegex.test(username)) {
+      showToast('아이디는 영어와 숫자를 포함하여 4자 이상 입력해주세요', 'error')
+      return
+    }
+    
+    // 비밀번호 검증: 영어+숫자 조합 6자 이상
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])[a-zA-Z0-9]{6,}$/
+    if (!passwordRegex.test(password)) {
+      showToast('비밀번호는 영어와 숫자를 포함하여 6자 이상 입력해주세요', 'error')
+      return
+    }
     
     // 비밀번호 확인
     if (password !== passwordConfirm) {

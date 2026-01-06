@@ -105,6 +105,24 @@ app.post('/api/auth/register', async (c) => {
       return c.json({ success: false, message: '모든 필드를 입력해주세요.' }, 400)
     }
     
+    // 연락처 형식 검증: 010으로 시작하는 11자리 숫자
+    const phoneRegex = /^010[0-9]{8}$/
+    if (!phoneRegex.test(phone)) {
+      return c.json({ success: false, message: '연락처는 010으로 시작하는 11자리 숫자만 입력해주세요.' }, 400)
+    }
+    
+    // 아이디 형식 검증: 영어+숫자 조합 4자 이상
+    const usernameRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])[a-zA-Z0-9]{4,}$/
+    if (!usernameRegex.test(username)) {
+      return c.json({ success: false, message: '아이디는 영어와 숫자를 포함하여 4자 이상 입력해주세요.' }, 400)
+    }
+    
+    // 비밀번호 형식 검증: 영어+숫자 조합 6자 이상
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])[a-zA-Z0-9]{6,}$/
+    if (!passwordRegex.test(password)) {
+      return c.json({ success: false, message: '비밀번호는 영어와 숫자를 포함하여 6자 이상 입력해주세요.' }, 400)
+    }
+    
     // 아이디 중복 체크
     if (users.find(u => u.username === username)) {
       return c.json({ success: false, message: '이미 사용 중인 아이디입니다.' }, 400)
