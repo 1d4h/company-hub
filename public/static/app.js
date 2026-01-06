@@ -177,18 +177,50 @@ function parseExcel(file) {
           return
         }
         
+        // Excel 헤더 → DB 필드 매핑
+        const headerMap = {
+          '순번': 'sequence',
+          '횟수': 'count',
+          '접수일자': 'receipt_date',
+          '업체': 'company',
+          '구분': 'category',
+          '고객명': 'customer_name',
+          '전화번호': 'phone',
+          '설치연,월': 'install_date',
+          '열원': 'heat_source',
+          '주소': 'address',
+          'AS접수내용': 'as_content',
+          '설치팀': 'install_team',
+          '지역': 'region',
+          '접수자': 'receptionist',
+          'AS결과': 'as_result'
+        }
+        
         // 헤더와 데이터 분리
         const headers = jsonData[0]
         const rows = []
         
         for (let i = 1; i < jsonData.length; i++) {
           const row = {}
+          let hasData = false
+          
           headers.forEach((header, index) => {
-            row[header] = jsonData[i][index] !== undefined ? String(jsonData[i][index]).trim() : ''
+            const value = jsonData[i][index]
+            const mappedKey = headerMap[header] || header
+            
+            if (value !== undefined && value !== null && String(value).trim() !== '') {
+              row[mappedKey] = String(value).trim()
+              hasData = true
+            }
           })
-          rows.push(row)
+          
+          // 빈 행 제외
+          if (hasData) {
+            rows.push(row)
+          }
         }
         
+        console.log(`📊 Excel 파싱 완료: ${rows.length}개 행`)
         resolve(rows)
       } catch (error) {
         reject(error)
@@ -468,24 +500,24 @@ function renderUserMap() {
   const app = document.getElementById('app')
   app.innerHTML = `
     <div class="h-screen flex flex-col">
-      <!-- 헤더 -->
+      <!-- 헤더 (모바일 최적화) -->
       <header class="bg-white shadow-sm border-b flex-shrink-0">
-        <div class="px-4 py-4 flex justify-between items-center">
-          <div class="flex items-center space-x-4">
-            <i class="fas fa-map-marked-alt text-2xl text-blue-600"></i>
+        <div class="px-3 py-3 flex justify-between items-center">
+          <div class="flex items-center space-x-2">
+            <i class="fas fa-map-marked-alt text-xl text-blue-600"></i>
             <div>
-              <h1 class="text-xl font-bold text-gray-800">고객 지도</h1>
-              <p class="text-sm text-gray-600">${state.currentUser.name}님</p>
+              <h1 class="text-base font-bold text-gray-800">고객 지도</h1>
+              <p class="text-xs text-gray-600">${state.currentUser.name}님</p>
             </div>
           </div>
-          <div class="flex space-x-3">
+          <div class="flex space-x-2">
             ${state.currentUser.role === 'admin' ? `
-            <button onclick="renderAdminDashboard()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
-              <i class="fas fa-user-shield mr-2"></i>관리자 모드
+            <button onclick="renderAdminDashboard()" class="px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+              <i class="fas fa-user-shield sm:mr-2"></i><span class="hidden sm:inline">관리자</span>
             </button>
             ` : ''}
-            <button onclick="logout()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
-              <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+            <button onclick="logout()" class="px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+              <i class="fas fa-sign-out-alt sm:mr-2"></i><span class="hidden sm:inline">로그아웃</span>
             </button>
           </div>
         </div>
@@ -506,22 +538,23 @@ function renderUserMap() {
           <div id="customerDetailContent"></div>
         </div>
         
-        <!-- 고객 목록 사이드 패널 (접기 가능) -->
-        <div id="customerSidePanel" class="absolute top-4 left-4 bg-white rounded-xl shadow-xl w-80 max-h-[calc(100vh-120px)] z-10 transition-all duration-300">
+        <!-- 고객 목록 하단 패널 (모바일 최적화) -->
+        <div id="customerSidePanel" class="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-20 transition-all duration-300" style="max-height: 60vh;">
           <div class="p-4">
             <!-- 타이틀 헤더 (항상 표시) -->
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex-1">
+                <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
+                <h3 class="text-base font-bold text-gray-800 flex items-center">
                   <i class="fas fa-users mr-2"></i>고객 목록
+                  <span class="ml-2 text-sm font-normal text-gray-500">
+                    (<span id="totalCustomerCount">0</span>명)
+                  </span>
                 </h3>
-                <p class="text-xs text-gray-500 mt-1">
-                  <span id="totalCustomerCount">0</span>명 등록됨
-                </p>
               </div>
               <!-- 접기/펼치기 버튼 -->
-              <button onclick="toggleCustomerPanel()" class="text-blue-600 hover:text-blue-800 transition">
-                <i id="panelToggleIcon" class="fas fa-chevron-left text-xl"></i>
+              <button onclick="toggleCustomerPanel()" class="text-blue-600 hover:text-blue-800 transition p-2">
+                <i id="panelToggleIcon" class="fas fa-chevron-down text-xl"></i>
               </button>
             </div>
             
@@ -1580,13 +1613,13 @@ function toggleCustomerPanel() {
   if (isCollapsed) {
     // 펼치기
     content.style.display = 'block'
-    panel.style.width = '20rem' // w-80
-    icon.className = 'fas fa-chevron-left text-xl'
+    panel.style.maxHeight = '60vh'
+    icon.className = 'fas fa-chevron-down text-xl'
   } else {
     // 접기
     content.style.display = 'none'
-    panel.style.width = 'auto' // 타이틀만 보이도록
-    icon.className = 'fas fa-chevron-right text-xl'
+    panel.style.maxHeight = '80px'
+    icon.className = 'fas fa-chevron-up text-xl'
   }
 }
 
