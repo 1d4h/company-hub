@@ -511,9 +511,14 @@ function renderUserMap() {
           <div class="p-4">
             <!-- 타이틀 헤더 (항상 표시) -->
             <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg font-bold text-gray-800 flex items-center">
-                <i class="fas fa-users mr-2"></i>고객 목록
-              </h3>
+              <div>
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                  <i class="fas fa-users mr-2"></i>고객 목록
+                </h3>
+                <p class="text-xs text-gray-500 mt-1">
+                  <span id="totalCustomerCount">0</span>명 등록됨
+                </p>
+              </div>
               <!-- 접기/펼치기 버튼 -->
               <button onclick="toggleCustomerPanel()" class="text-blue-600 hover:text-blue-800 transition">
                 <i id="panelToggleIcon" class="fas fa-chevron-left text-xl"></i>
@@ -536,6 +541,12 @@ function renderUserMap() {
     const listEl = document.getElementById('customerList')
     if (listEl) {
       listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">지도에서 위치를 선택하면<br/>주변 고객 목록이 표시됩니다</p>'
+    }
+    
+    // 전체 고객 수 표시
+    const totalCountEl = document.getElementById('totalCustomerCount')
+    if (totalCountEl) {
+      totalCountEl.textContent = state.customers.length
     }
     
     // 고객 목록 패널 기본값 접기
@@ -592,7 +603,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 
 // 주변 고객 목록 표시 (거리순)
 function showNearbyCustomers(centerLat, centerLng) {
-  // 모든 고객에 대해 거리 계산
+  // 모든 고객에 대해 거리 계산 (제한 없이 전체 표시)
   const customersWithDistance = state.customers
     .filter(c => c.latitude && c.longitude)
     .map(customer => ({
@@ -606,6 +617,12 @@ function showNearbyCustomers(centerLat, centerLng) {
   
   // 고객 목록 렌더링
   renderCustomerList()
+  
+  // 전체 고객 수 업데이트
+  const totalCountEl = document.getElementById('totalCustomerCount')
+  if (totalCountEl) {
+    totalCountEl.textContent = state.customers.length
+  }
   
   // 고객 목록 패널 펼치기
   const content = document.getElementById('customerListContent')
@@ -764,16 +781,37 @@ function initTMap() {
     const centerLat = 37.5665
     const centerLng = 126.9780
     
-    // 고객 좌표의 중심점 계산
+    // 고객 좌표의 중심점 계산 (가장 밀집된 지역 찾기)
     const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
     console.log(`📍 표시할 고객 수: ${validCustomers.length}`)
     
     let center, zoom
     if (validCustomers.length > 0) {
-      const avgLat = validCustomers.reduce((sum, c) => sum + c.latitude, 0) / validCustomers.length
-      const avgLng = validCustomers.reduce((sum, c) => sum + c.longitude, 0) / validCustomers.length
-      center = new Tmapv2.LatLng(avgLat, avgLng)
-      zoom = 15
+      // 가장 밀집된 지역 찾기 (각 고객 주변 반경 5km 내 고객 수 계산)
+      let maxDensityCustomer = validCustomers[0]
+      let maxDensity = 0
+      
+      validCustomers.forEach(customer => {
+        let nearbyCount = 0
+        validCustomers.forEach(other => {
+          const distance = calculateDistance(
+            customer.latitude, customer.longitude,
+            other.latitude, other.longitude
+          )
+          if (distance <= 5000) { // 5km 반경
+            nearbyCount++
+          }
+        })
+        
+        if (nearbyCount > maxDensity) {
+          maxDensity = nearbyCount
+          maxDensityCustomer = customer
+        }
+      })
+      
+      console.log(`🎯 가장 밀집된 지역: ${maxDensityCustomer.customer_name} 주변 (${maxDensity}명)`)
+      center = new Tmapv2.LatLng(maxDensityCustomer.latitude, maxDensityCustomer.longitude)
+      zoom = 14
     } else {
       center = new Tmapv2.LatLng(centerLat, centerLng)
       zoom = 13
@@ -1054,20 +1092,21 @@ function previewAttachedFile() {
     // Blob URL 생성
     const url = URL.createObjectURL(state.uploadFile)
     
-    // 새 탭에서 파일 열기
-    const newWindow = window.open(url, '_blank')
+    // 다운로드 링크 생성 및 클릭 (Excel에서 바로 열기)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = state.uploadFileName || 'file.xlsx'
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
     
-    if (newWindow) {
-      showToast('새 탭에서 파일을 열었습니다', 'success')
-      
-      // 일정 시간 후 URL 해제
-      setTimeout(() => {
-        URL.revokeObjectURL(url)
-      }, 60000) // 1분 후
-    } else {
-      showToast('팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도하세요', 'error')
+    showToast('Excel 파일을 다운로드했습니다. Excel에서 열어주세요', 'success')
+    
+    // URL 해제
+    setTimeout(() => {
       URL.revokeObjectURL(url)
-    }
+    }, 1000)
   } catch (error) {
     console.error('파일 열기 오류:', error)
     showToast('파일을 열 수 없습니다: ' + error.message, 'error')
