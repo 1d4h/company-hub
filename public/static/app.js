@@ -239,6 +239,22 @@ function parseExcel(file) {
 // 렌더링 함수
 // ============================================
 
+// 비밀번호 표시/숨김 토글
+function togglePasswordVisibility(inputId, iconId) {
+  const input = document.getElementById(inputId)
+  const icon = document.getElementById(iconId)
+  
+  if (input.type === 'password') {
+    input.type = 'text'
+    icon.classList.remove('fa-eye-slash')
+    icon.classList.add('fa-eye')
+  } else {
+    input.type = 'password'
+    icon.classList.remove('fa-eye')
+    icon.classList.add('fa-eye-slash')
+  }
+}
+
 // 로그인 화면
 function renderLogin() {
   const app = document.getElementById('app')
@@ -269,13 +285,22 @@ function renderLogin() {
             <label class="block text-sm font-medium text-gray-700 mb-2">
               <i class="fas fa-lock mr-2"></i>비밀번호
             </label>
-            <input 
-              type="password" 
-              id="password" 
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="비밀번호를 입력하세요"
-              required
-            />
+            <div class="relative">
+              <input 
+                type="password" 
+                id="password" 
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="비밀번호를 입력하세요"
+                required
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('password', 'togglePasswordIcon')"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                <i id="togglePasswordIcon" class="fas fa-eye-slash"></i>
+              </button>
+            </div>
           </div>
           
           <button 
@@ -1817,10 +1842,13 @@ function showCustomerDetail(customerId) {
         <p class="text-gray-800">${formatDate(customer.receipt_date || customer.created_at)}</p>
       </div>
       
-      <div class="pt-4 border-t">
+      <div class="pt-4 border-t space-y-3">
         ${customer.latitude && customer.longitude ? `
         <button onclick="openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-6 py-4 text-lg font-semibold bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 active:bg-yellow-700 transition touch-action-manipulation">
-          <i class="fas fa-location-arrow mr-2"></i>카카오내비에서 길 안내
+          <i class="fas fa-location-arrow mr-2"></i>Kakao Map에서 길 안내
+        </button>
+        <button onclick="openTMapNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-6 py-4 text-lg font-semibold bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:bg-blue-700 transition touch-action-manipulation">
+          <i class="fas fa-map-marked-alt mr-2"></i>T Map에서 길 안내
         </button>
         ` : ''}
       </div>
@@ -1889,6 +1917,43 @@ function openNavigation(lat, lng, name) {
   } catch (error) {
     console.error('길 안내 오류:', error)
     showToast('길 안내를 실행할 수 없습니다', 'error')
+  }
+}
+
+// T Map 길 안내
+function openTMapNavigation(lat, lng, name) {
+  // T Map App Key: vSWmSa8CcO4uvyc0EsAg46SWvxNVAKzL8KGbckPB
+  
+  try {
+    // T Map 앱 URL 스킴
+    const tmapAppUrl = `tmap://route?goalname=${encodeURIComponent(name)}&goalx=${lng}&goaly=${lat}`
+    
+    // T Map 웹 URL (앱이 없을 경우 대체)
+    const tmapWebUrl = `https://apis.openapi.sk.com/tmap/app/routes?appKey=vSWmSa8CcO4uvyc0EsAg46SWvxNVAKzL8KGbckPB&name=${encodeURIComponent(name)}&lon=${lng}&lat=${lat}`
+    
+    // 모바일 환경 체크
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    
+    if (isMobile) {
+      // 모바일에서는 T Map 앱 스킴 시도
+      window.location.href = tmapAppUrl
+      
+      // 1.5초 후에도 페이지가 그대로면 앱이 없는 것으로 판단
+      setTimeout(() => {
+        // 앱이 없으면 T Map 웹으로 이동
+        if (!document.hidden) {
+          window.location.href = tmapWebUrl
+        }
+      }, 1500)
+    } else {
+      // 데스크톱에서는 T Map 웹으로 연결
+      window.open(tmapWebUrl, '_blank')
+    }
+    
+    showToast('T Map으로 길 안내를 시작합니다', 'success')
+  } catch (error) {
+    console.error('T Map 길 안내 오류:', error)
+    showToast('T Map 길 안내를 실행할 수 없습니다', 'error')
   }
 }
 
