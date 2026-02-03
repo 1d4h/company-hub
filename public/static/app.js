@@ -1245,20 +1245,6 @@ function initKakaoMap() {
         // CustomOverlay로 깔끔하고 예쁜 원형 마커 생성
         const markerContent = `
           <div class="custom-marker" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
-            <!-- 펄스 애니메이션 링 -->
-            <div style="
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              width: 50px;
-              height: 50px;
-              background: ${bgColor};
-              border-radius: 50%;
-              opacity: 0.4;
-              animation: marker-pulse 2s infinite;
-            "></div>
-            
             <!-- 메인 마커 원 -->
             <div style="
               position: relative;
@@ -1271,7 +1257,6 @@ function initKakaoMap() {
               display: flex;
               align-items: center;
               justify-content: center;
-              transition: all 0.3s ease;
             ">
               <!-- 아이콘 -->
               <i class="fas ${iconClass}" style="
@@ -1279,28 +1264,6 @@ function initKakaoMap() {
                 font-size: 18px;
               "></i>
             </div>
-            
-            <style>
-              @keyframes marker-pulse {
-                0% {
-                  transform: translate(-50%, -50%) scale(1);
-                  opacity: 0.4;
-                }
-                50% {
-                  transform: translate(-50%, -50%) scale(1.3);
-                  opacity: 0.1;
-                }
-                100% {
-                  transform: translate(-50%, -50%) scale(1);
-                  opacity: 0.4;
-                }
-              }
-              
-              .custom-marker:hover > div:nth-child(2) {
-                transform: scale(1.15);
-                box-shadow: 0 6px 16px rgba(0,0,0,0.5);
-              }
-            </style>
           </div>
         `
         
