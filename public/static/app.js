@@ -1211,33 +1211,127 @@ function initKakaoMap() {
     
     validCustomers.forEach((customer, index) => {
       try {
-        // AS결과에 따라 마커 색상 결정
+        // AS결과에 따라 마커 색상 및 아이콘 결정
         const markerColor = getMarkerColorByStatus(customer.as_result)
         
-        // Kakao Maps 기본 마커 이미지 URL
-        let markerImageUrl
+        let bgColor, iconColor, iconClass, statusText
         if (markerColor === 'g') {
-          markerImageUrl = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_green.png'
+          bgColor = '#10B981'  // 초록색 (완료)
+          iconColor = '#FFFFFF'
+          iconClass = 'fa-check-circle'
+          statusText = '완료'
         } else if (markerColor === 'y') {
-          markerImageUrl = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_yellow.png'
+          bgColor = '#F59E0B'  // 노란색 (대기)
+          iconColor = '#FFFFFF'
+          iconClass = 'fa-clock'
+          statusText = '대기'
         } else if (markerColor === 'r') {
-          markerImageUrl = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png'
+          bgColor = '#EF4444'  // 빨간색 (미완료)
+          iconColor = '#FFFFFF'
+          iconClass = 'fa-exclamation-circle'
+          statusText = '미완료'
         } else {
-          markerImageUrl = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png'
+          bgColor = '#3B82F6'  // 파란색 (기본)
+          iconColor = '#FFFFFF'
+          iconClass = 'fa-map-marker-alt'
+          statusText = '기본'
         }
         
-        const imageSize = new kakao.maps.Size(24, 35)
-        const markerImage = new kakao.maps.MarkerImage(markerImageUrl, imageSize)
+        // 고객명 짧게 표시 (최대 4글자)
+        const shortName = customer.customer_name.length > 4 
+          ? customer.customer_name.substring(0, 4) 
+          : customer.customer_name
         
-        const marker = new kakao.maps.Marker({
+        // CustomOverlay로 크고 눈에 띄는 마커 생성
+        const markerContent = `
+          <div style="position: relative; cursor: pointer; transform: translate(-50%, -100%);">
+            <!-- 마커 핀 -->
+            <div style="
+              position: relative;
+              width: 48px;
+              height: 60px;
+              background: ${bgColor};
+              border-radius: 50% 50% 50% 0;
+              transform: rotate(-45deg);
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              border: 3px solid white;
+            ">
+              <!-- 아이콘 (회전 복원) -->
+              <div style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(45deg);
+                color: ${iconColor};
+                font-size: 20px;
+                font-weight: bold;
+              ">
+                <i class="fas ${iconClass}"></i>
+              </div>
+            </div>
+            
+            <!-- 고객명 라벨 -->
+            <div style="
+              position: absolute;
+              bottom: -25px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: ${bgColor};
+              color: white;
+              padding: 3px 8px;
+              border-radius: 12px;
+              font-size: 11px;
+              font-weight: bold;
+              white-space: nowrap;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+              border: 2px solid white;
+            ">
+              ${shortName}
+            </div>
+            
+            <!-- 펄스 애니메이션 (선택적) -->
+            <div style="
+              position: absolute;
+              top: 15px;
+              left: 15px;
+              width: 18px;
+              height: 18px;
+              background: ${bgColor};
+              border-radius: 50%;
+              opacity: 0.6;
+              animation: marker-pulse 2s infinite;
+            "></div>
+            
+            <style>
+              @keyframes marker-pulse {
+                0% {
+                  transform: scale(1);
+                  opacity: 0.6;
+                }
+                50% {
+                  transform: scale(1.5);
+                  opacity: 0.3;
+                }
+                100% {
+                  transform: scale(1);
+                  opacity: 0.6;
+                }
+              }
+            </style>
+          </div>
+        `
+        
+        const customOverlay = new kakao.maps.CustomOverlay({
           position: new kakao.maps.LatLng(customer.latitude, customer.longitude),
-          map: state.map,
-          title: customer.customer_name,
-          image: markerImage
+          content: markerContent,
+          zIndex: 100
         })
         
-        // 클릭 이벤트
-        kakao.maps.event.addListener(marker, 'click', function() {
+        customOverlay.setMap(state.map)
+        
+        // 클릭 이벤트 (DOM 이벤트)
+        const overlayElement = customOverlay.getContent()
+        overlayElement.addEventListener('click', function() {
           console.log('🖱️ 마커 클릭:', customer.customer_name)
           
           // 고객 상세 정보 표시
@@ -1247,8 +1341,8 @@ function initKakaoMap() {
           showNearbyCustomers(customer.latitude, customer.longitude)
         })
         
-        state.markers.push(marker)
-        console.log(`✅ 마커 ${index + 1} 생성 완료: ${customer.customer_name}`)
+        state.markers.push(customOverlay)
+        console.log(`✅ 마커 ${index + 1} 생성 완료: ${customer.customer_name} (${statusText})`)
       } catch (error) {
         console.error(`❌ 마커 ${index + 1} 생성 실패:`, error)
       }
