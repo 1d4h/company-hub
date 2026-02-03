@@ -2078,13 +2078,6 @@ function showCustomerDetail(customerId) {
   
   console.log('✅ showCustomerDetail 완료')
 }
-  
-  // 지도에서 해당 고객 위치로 이동
-  if (state.map && customer.latitude && customer.longitude) {
-    state.map.setCenter(new kakao.maps.LatLng(customer.latitude, customer.longitude))
-    state.map.setLevel(4)  // Kakao Maps level (낮을수록 확대)
-  }
-}
 
 // 지도에서 고객 상세정보 표시 (마커 클릭시)
 function showCustomerDetailOnMap(customer) {
