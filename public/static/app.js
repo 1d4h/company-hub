@@ -852,28 +852,58 @@ function renderUserMap() {
   
   // 먼저 고객 데이터 로드
   loadCustomers().then(() => {
-    // 초기에는 고객 목록 비우기 (접힌 상태로 시작)
-    const listEl = document.getElementById('customerList')
-    if (listEl) {
-      listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">지도에서 위치를 선택하면<br/>주변 고객 목록이 표시됩니다</p>'
-    }
-    
     // 전체 고객 수 표시
     const totalCountEl = document.getElementById('totalCustomerCount')
     if (totalCountEl) {
       totalCountEl.textContent = state.customers.length
     }
     
-    // 고객 목록 패널 기본값 접기
+    // 초기에 모든 고객 목록 표시 (펼침 상태로 시작)
+    const listEl = document.getElementById('customerList')
+    if (listEl && state.customers.length > 0) {
+      // 모든 고객을 거리순이 아닌 기본 순서로 표시
+      listEl.innerHTML = state.customers.map(customer => {
+        const markerColor = getMarkerColorByStatus(customer.as_result)
+        let statusColor = 'gray'
+        let statusIcon = 'fa-circle'
+        
+        if (markerColor === 'g') {
+          statusColor = 'green'
+          statusIcon = 'fa-check-circle'
+        } else if (markerColor === 'y') {
+          statusColor = 'yellow'
+          statusIcon = 'fa-clock'
+        } else if (markerColor === 'r') {
+          statusColor = 'red'
+          statusIcon = 'fa-exclamation-circle'
+        } else {
+          statusColor = 'blue'
+          statusIcon = 'fa-circle'
+        }
+        
+        return `
+        <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
+            <p class="font-medium text-gray-800 text-sm flex-1">${customer.customer_name}</p>
+          </div>
+        </div>
+        `
+      }).join('')
+    } else if (listEl) {
+      listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">등록된 고객이 없습니다</p>'
+    }
+    
+    // 고객 목록 패널 기본값 펼침 (변경됨)
     setTimeout(() => {
       const content = document.getElementById('customerListContent')
       const panel = document.getElementById('customerSidePanel')
       const icon = document.getElementById('panelToggleIcon')
       
       if (content && panel && icon) {
-        content.style.display = 'none'
-        panel.style.width = 'auto'
-        icon.className = 'fas fa-chevron-right text-xl'
+        content.style.display = 'block'  // 펼침 상태
+        panel.style.maxHeight = '60vh'
+        icon.className = 'fas fa-chevron-down text-xl'  // 아래 화살표
       }
     }, 100)
     
@@ -890,7 +920,7 @@ function renderUserMap() {
         
         if (typeof Tmapv2 !== 'undefined') {
           console.log('✅ T Map API 로드됨, 지도 초기화 시작...')
-          initKakaoMap()
+          initTMap()
         } else {
           console.warn('⚠️ T Map API를 사용할 수 없습니다')
           showMapFallback()
@@ -1100,8 +1130,8 @@ function getMarkerBgColor(markerColor) {
 }
 
 // 네이버 지도 초기화
-function initKakaoMap() {
-  console.log('🗺️ Kakao Maps 초기화 시작...')
+function initTMap() {
+  console.log('🗺️ T Map 초기화 시작...')
   
   const mapDiv = document.getElementById('map')
   if (!mapDiv) {
@@ -1110,8 +1140,8 @@ function initKakaoMap() {
   }
   
   // T Map API 로드 확인
-  if (typeof kakao === 'undefined' || !kakao.maps) {
-    console.error('❌ Kakao Maps API가 로드되지 않았습니다')
+  if (typeof Tmapv2 === 'undefined') {
+    console.error('❌ T Map API가 로드되지 않았습니다')
     showMapFallback()
     return
   }
@@ -1125,7 +1155,7 @@ function initKakaoMap() {
   }
   
   try {
-    console.log('🗺️ Kakao Maps 지도 초기화 시작...')
+    console.log('🗺️ T Map 지도 초기화 시작...')
     
     // 서울 중심 좌표 (기본값)
     const defaultCenterLat = 37.5665
@@ -1180,7 +1210,7 @@ function initKakaoMap() {
       scrollwheel: true
     })
     
-    console.log('✅ Kakao Maps 객체 생성 완료', state.map)
+    console.log('✅ T Map 객체 생성 완료', state.map)
     console.log('🗺️ 지도 중심:', center.toString(), '줌 레벨:', zoom)
     console.log('🗺️ 지도 객체 메서드:', Object.keys(state.map).filter(k => typeof state.map[k] === 'function').slice(0, 10))
     
@@ -1274,7 +1304,7 @@ function initKakaoMap() {
       }
     })
     
-    console.log(`✅ Kakao Maps 초기화 완료: ${validCustomers.length}개의 마커 생성 시도, ${state.markers.length}개 성공`)
+    console.log(`✅ T Map 초기화 완료: ${validCustomers.length}개의 마커 생성 시도, ${state.markers.length}개 성공`)
     
     showToast('지도가 로드되었습니다', 'success')
     
@@ -1282,7 +1312,7 @@ function initKakaoMap() {
     requestUserLocation()
     
   } catch (error) {
-    console.error('❌ Kakao Maps 초기화 오류:', error)
+    console.error('❌ T Map 초기화 오류:', error)
     showMapFallback()
     showToast('지도 로드 실패: T Map API를 확인해주세요', 'error')
   }
@@ -1357,30 +1387,45 @@ function addUserLocationMarker() {
     
     console.log('📍 GPS 마커 생성 시작:', state.userLocation.lat, state.userLocation.lng)
     
-    // 핀포인트 스타일 GPS 마커 (빨간색 핀)
-    const markerSize = 48
-    const markerSvg = `
-      <svg width="${markerSize}" height="${markerSize}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- 빨간색 핀 포인트 -->
-        <path d="M24 2C15.163 2 8 9.163 8 18C8 29.25 24 46 24 46C24 46 40 29.25 40 18C40 9.163 32.837 2 24 2Z" 
-              fill="#FF0000" 
-              stroke="white" 
-              stroke-width="2"/>
-        <!-- 내부 흰색 원 -->
-        <circle cx="24" cy="18" r="6" fill="white"/>
-      </svg>
+    // 펄스 애니메이션이 있는 GPS 마커 (HTML 방식)
+    const markerSize = 80
+    const markerHtml = `
+      <div style="position: relative; width: ${markerSize}px; height: ${markerSize}px; transform: translate(-50%, -50%);">
+        <!-- 펄스 애니메이션 외부 링 -->
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: rgba(255, 0, 0, 0.3); border-radius: 50%; animation: pulse-gps 2s infinite;"></div>
+        <!-- 중간 링 -->
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; background: rgba(255, 0, 0, 0.5); border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(255,0,0,0.5);"></div>
+        <!-- 내부 점 -->
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; background: #FF0000; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); z-index: 10;"></div>
+      </div>
+      <style>
+        @keyframes pulse-gps {
+          0% {
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0.9;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(1.3);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0.9;
+          }
+        }
+      </style>
     `
     
     const marker = new Tmapv2.Marker({
       position: new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng),
       map: state.map,
-      icon: markerSvg,
+      iconHTML: markerHtml,
       iconSize: new Tmapv2.Size(markerSize, markerSize),
       title: '현재 위치'
     })
     
     state.userLocationMarker = marker
-    console.log('✅ GPS 마커 추가 완료 (빨간색 핀)')
+    console.log('✅ GPS 마커 추가 완료 (빨간색 펄스 애니메이션)')
     
   } catch (error) {
     console.error('❌ GPS 마커 생성 실패:', error)
@@ -2192,8 +2237,8 @@ function filterCustomersByName() {
   }).join('')
 }
 
-// 위성 지도 전환 (Kakao Maps 사용)
-function toggleSatelliteMap() {
+// 위성 지도 보기 (Kakao Maps로 이동)
+function toggleMapType() {
   if (!state.map) {
     showToast('지도를 먼저 로드해주세요', 'error')
     return
