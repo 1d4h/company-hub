@@ -2299,3 +2299,42 @@ window.openDirections = openDirections
 window.openNavigation = openNavigation
 window.renderAdminDashboard = renderAdminDashboard
 window.toggleCustomerPanel = toggleCustomerPanel
+window.moveToUserLocation = moveToUserLocation
+window.toggleMapType = toggleMapType
+window.togglePasswordVisibility = togglePasswordVisibility
+
+// ============================================
+// 앱 초기화
+// ============================================
+console.log('🚀 app.js 로드 완료')
+
+// DOM 로드 완료 시 앱 초기화
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp)
+} else {
+  // DOM이 이미 로드된 경우
+  initApp()
+}
+
+function initApp() {
+  console.log('🎯 앱 초기화 시작...')
+  
+  // 세션 확인
+  if (loadSession()) {
+    console.log('✅ 세션 복원:', state.currentUser.name)
+    
+    // 역할에 따라 화면 렌더링
+    if (state.currentUser.role === 'admin') {
+      renderAdminDashboard()
+    } else {
+      renderUserMapView()
+    }
+  } else {
+    console.log('ℹ️ 세션 없음 - 로그인 화면 표시')
+    renderLogin()
+  }
+  
+  console.log('✅ 앱 초기화 완료')
+}
+
+console.log('📱 앱 준비 완료 - 로그인 화면 대기 중')
