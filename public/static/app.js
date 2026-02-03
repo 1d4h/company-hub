@@ -1242,80 +1242,63 @@ function initKakaoMap() {
           ? customer.customer_name.substring(0, 4) 
           : customer.customer_name
         
-        // CustomOverlay로 크고 눈에 띄는 마커 생성
+        // CustomOverlay로 깔끔하고 예쁜 원형 마커 생성
         const markerContent = `
-          <div style="position: relative; cursor: pointer; transform: translate(-50%, -100%);">
-            <!-- 마커 핀 -->
-            <div style="
-              position: relative;
-              width: 48px;
-              height: 60px;
-              background: ${bgColor};
-              border-radius: 50% 50% 50% 0;
-              transform: rotate(-45deg);
-              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-              border: 3px solid white;
-            ">
-              <!-- 아이콘 (회전 복원) -->
-              <div style="
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%) rotate(45deg);
-                color: ${iconColor};
-                font-size: 20px;
-                font-weight: bold;
-              ">
-                <i class="fas ${iconClass}"></i>
-              </div>
-            </div>
-            
-            <!-- 고객명 라벨 -->
+          <div class="custom-marker" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
+            <!-- 펄스 애니메이션 링 -->
             <div style="
               position: absolute;
-              bottom: -25px;
+              top: 50%;
               left: 50%;
-              transform: translateX(-50%);
-              background: ${bgColor};
-              color: white;
-              padding: 3px 8px;
-              border-radius: 12px;
-              font-size: 11px;
-              font-weight: bold;
-              white-space: nowrap;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-              border: 2px solid white;
-            ">
-              ${shortName}
-            </div>
-            
-            <!-- 펄스 애니메이션 (선택적) -->
-            <div style="
-              position: absolute;
-              top: 15px;
-              left: 15px;
-              width: 18px;
-              height: 18px;
+              transform: translate(-50%, -50%);
+              width: 50px;
+              height: 50px;
               background: ${bgColor};
               border-radius: 50%;
-              opacity: 0.6;
+              opacity: 0.4;
               animation: marker-pulse 2s infinite;
             "></div>
+            
+            <!-- 메인 마커 원 -->
+            <div style="
+              position: relative;
+              width: 40px;
+              height: 40px;
+              background: ${bgColor};
+              border-radius: 50%;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+              border: 3px solid white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              transition: all 0.3s ease;
+            ">
+              <!-- 아이콘 -->
+              <i class="fas ${iconClass}" style="
+                color: ${iconColor};
+                font-size: 18px;
+              "></i>
+            </div>
             
             <style>
               @keyframes marker-pulse {
                 0% {
-                  transform: scale(1);
-                  opacity: 0.6;
+                  transform: translate(-50%, -50%) scale(1);
+                  opacity: 0.4;
                 }
                 50% {
-                  transform: scale(1.5);
-                  opacity: 0.3;
+                  transform: translate(-50%, -50%) scale(1.3);
+                  opacity: 0.1;
                 }
                 100% {
-                  transform: scale(1);
-                  opacity: 0.6;
+                  transform: translate(-50%, -50%) scale(1);
+                  opacity: 0.4;
                 }
+              }
+              
+              .custom-marker:hover > div:nth-child(2) {
+                transform: scale(1.15);
+                box-shadow: 0 6px 16px rgba(0,0,0,0.5);
               }
             </style>
           </div>
@@ -1388,8 +1371,8 @@ function requestUserLocation() {
       
       // GPS 위치로 지도 중심 이동
       if (state.map) {
-        state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
-        state.map.setZoom(16)
+        state.map.setCenter(new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng))
+        state.map.setLevel(4)  // Kakao Maps level (낮을수록 확대)
         showToast('현재 위치로 이동했습니다', 'success')
       }
       
@@ -2091,8 +2074,8 @@ function showCustomerDetail(customerId) {
   
   // 지도에서 해당 고객 위치로 이동
   if (state.map && customer.latitude && customer.longitude) {
-    state.map.setCenter(new Tmapv2.LatLng(customer.latitude, customer.longitude))
-    state.map.setZoom(17)
+    state.map.setCenter(new kakao.maps.LatLng(customer.latitude, customer.longitude))
+    state.map.setLevel(4)  // Kakao Maps level (낮을수록 확대)
   }
 }
 
