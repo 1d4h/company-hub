@@ -4,37 +4,60 @@ AS 접수현황을 관리하는 지도 기반 웹 애플리케이션
 
 ---
 
-## 🎉 **안정 버전 백업 (2026-01-08)**
+## 🎉 **최신 안정 버전 (2026-02-03)**
 
-### 📦 백업 정보
-- **백업 날짜**: 2026-01-08
-- **백업 버전**: v1.0-stable-2026-01-08
-- **완성도**: 90%
-- **Git 커밋**: `8ff7d44` (로그인 비밀번호 표시/숨김, T Map 길 안내 추가, Kakao Map 텍스트 변경)
+### 📦 v1.2-kakao-complete
+- **백업 날짜**: 2026-02-03
+- **완성도**: 95%
+- **Git 커밋**: `ede5e71` (Kakao Maps 완전 전환, GPS 펄스 마커, 위성 지도 토글)
+- **백업 파일**: https://www.genspark.ai/api/files/s/NkRYmF41
+
+### 🆕 주요 변경사항 (v1.2)
+1. ✅ **Kakao Maps 완전 전환** - T Map에서 Kakao Maps로 완전 전환
+2. ✅ **GPS 마커 시각적 개선** - 빨간색 펄스 애니메이션 (80px, 3단계 링)
+3. ✅ **위성 지도 토글** - 버튼 클릭으로 일반 ↔ 위성 지도 전환
+4. ✅ **고객 목록 기본 펼침** - 초기 로드 시 모든 고객 목록 표시
+5. ✅ **고객명 실시간 검색** - 고객 목록 필터링 기능 추가
+6. ✅ **버튼 텍스트 간소화** - "내 위치", "위성 지도"
+
+### 🔄 이전 버전 백업
+
+#### v1.1-ui-improved (2026-02-03)
+- **Git 태그**: v1.1-ui-improved-2026-02-03
+- **Git 커밋**: `d27baa3`
+- **백업 파일**: https://www.genspark.ai/api/files/s/NkRYmF41
+- **특징**: UI 개선, GPS 마커 초기 버전
+
+#### v1.0-stable (2026-01-08)
+- **Git 태그**: v1.0-stable-2026-01-08
+- **Git 커밋**: `8ff7d44`
 - **백업 파일**: https://www.genspark.ai/api/files/s/AFNsi47e
+- **특징**: T Map 기반 안정 버전
 
 ### 🔄 백업 복원 방법
 
 #### 방법 1: Git 태그로 복원
 ```bash
 cd /home/user/webapp
-git checkout v1.0-stable-2026-01-08
+git fetch --all --tags
+git checkout v1.2-kakao-complete-2026-02-03
 pm2 restart webapp
 ```
 
 #### 방법 2: Git 커밋 해시로 복원
 ```bash
 cd /home/user/webapp
-git reset --hard 8ff7d44
+git reset --hard ede5e71
 pm2 restart webapp
 ```
 
 #### 방법 3: 백업 파일로 복원
-1. 백업 파일 다운로드: https://www.genspark.ai/api/files/s/AFNsi47e
+1. 백업 파일 다운로드: https://www.genspark.ai/api/files/s/NkRYmF41
 2. 압축 해제:
 ```bash
 cd /home/user
-tar -xzf webapp_stable_2026-01-08.tar.gz
+mv webapp webapp_old  # 기존 백업
+tar -xzf webapp_backup.tar.gz
 pm2 restart webapp
 ```
 
@@ -47,12 +70,12 @@ pm2 restart webapp
 ## 📋 프로젝트 개요
 
 - **이름**: 고객관리 시스템 (AS접수현황 관리)
-- **목표**: T Map 기반으로 AS 접수 고객 정보를 시각화하고 관리하는 웹 애플리케이션
-- **기술 스택**: Hono + Node.js + T Map API + Kakao Map API + TailwindCSS + SheetJS
+- **목표**: Kakao Maps 기반으로 AS 접수 고객 정보를 시각화하고 관리하는 웹 애플리케이션
+- **기술 스택**: Hono + Node.js + **Kakao Maps API** + TailwindCSS + SheetJS
 
 ## ✨ 주요 기능
 
-### 완료된 기능 (v1.0-stable-2026-01-08)
+### 완료된 기능 (v1.2-kakao-complete)
 
 1. **사용자 인증 시스템**
    - ✅ 로그인 화면 비밀번호 표시/숨김 토글 (👁️ 아이콘)
@@ -78,21 +101,24 @@ pm2 restart webapp
    - ✅ 중복 데이터 감지 (메모리 DB 및 파일 내)
    - ✅ 업로드 전 미리보기 (파일명, 데이터 요약)
    - ✅ 유효한 데이터만 선택적 업로드
-   - ✅ 자동 지오코딩 (주소 → 좌표 변환, T Map API)
+   - ✅ 자동 지오코딩 (주소 → 좌표 변환, Kakao Maps API)
    - ✅ 템플릿 파일 다운로드 기능
 
-4. **사용자 지도 뷰**
-   - ✅ **T Map 통합**: 실제 지도 렌더링
+4. **사용자 지도 뷰 (Kakao Maps 완전 전환)**
+   - ✅ **Kakao Maps 통합**: 실제 지도 렌더링
+   - ✅ **위성 지도 토글**: 버튼 클릭으로 일반 ↔ 위성 지도 전환
+   - ✅ **GPS 마커**: 빨간색 펄스 애니메이션 (80px, 3단계 링)
    - ✅ AS 상태별 마커 색상 구분:
      - 🟢 **초록색**: AS 완료 (수리 완료, 교체 완료 등)
      - 🟡 **노란색**: 점검/대기 중
-     - 🔵 **파란색**: 기본 상태 (AS결과 없음, 보류/취소)
      - 🔴 **빨간색**: 미완료/문제 있음
+     - ⭐ **파란색**: 기본 상태 (AS결과 없음)
+   - ✅ **고객 목록 기본 펼침**: 초기 로드 시 모든 고객 표시
+   - ✅ **고객명 실시간 검색**: 고객 목록 필터링
    - ✅ 고객 목록에 AS결과 및 상태 아이콘 표시
    - ✅ 거리 단위 표시 (m/km 자동 변환)
    - ✅ 고객 상세 정보 패널
-   - ✅ **Kakao Map 길 안내** (노란색 버튼)
-   - ✅ **T Map 길 안내** (파란색 버튼)
+   - ✅ **Kakao 길 안내** (Kakao Map 연동)
    - ✅ 핀포인트 클릭 상세 정보
    - ✅ 접수일자 형식 개선 (YYYY-MM-DD)
 
@@ -150,30 +176,31 @@ pm2 restart webapp
 }
 ```
 
-## 🗺️ 길 안내 시스템
+## 🗺️ Kakao Maps API 정보
 
-### Kakao Map 길 안내 (노란색 버튼)
-- **모바일**: Kakao Navi 앱 → Kakao Map 웹 (폴백)
-- **데스크톱**: Kakao Map 웹
-- **URL 스킴**: `kakaonavi://navigate?destination=...`
-- **웹 URL**: `https://map.kakao.com/link/to/...`
+### Kakao Maps API 키
+- **JavaScript Key**: `c933c69ba4e0228895438c6a8c327e74`
+- **API 문서**: https://developers.kakao.com/
 
-### T Map 길 안내 (파란색 버튼)
-- **모바일**: T Map 앱 → T Map 웹 (폴백)
-- **데스크톱**: T Map 웹
-- **URL 스킴**: `tmap://route?goalname=...&goalx=...&goaly=...`
-- **웹 URL**: `https://apis.openapi.sk.com/tmap/app/routes?...`
-- **App Key**: `vSWmSa8CcO4uvyc0EsAg46SWvxNVAKzL8KGbckPB`
+### Kakao Maps 기능:
+1. **지도 렌더링**: JavaScript API로 지도 표시
+2. **위성 지도**: ROADMAP ↔ HYBRID 전환
+3. **마커 표시**: AS 상태별 색상 구분
+4. **GPS 마커**: CustomOverlay로 펄스 애니메이션
+5. **길찾기**: Kakao Map 연동
 
-## 🗺️ T Map API 색상 매핑
+### 지도 타입
+- **ROADMAP**: 일반 지도 (기본)
+- **HYBRID**: 위성 지도 + 라벨 오버레이
 
-| AS결과 키워드 | 마커 색상 | 아이콘 | 의미 |
-|-------------|---------|-------|------|
-| 완료, 수리, 교체 | 🟢 초록색 | fa-check-circle | AS 완료 |
-| 점검, 대기, 예정 | 🟡 노란색 | fa-clock | 점검/대기 중 |
-| 취소, 불가, 보류 | 🔵 파란색 | fa-circle | 보류/취소 |
-| 기타 | 🔴 빨간색 | fa-exclamation-circle | 미완료/문제 |
-| (없음) | 🔵 파란색 | fa-circle | 기본 상태 |
+## 🗺️ Kakao Maps 색상 매핑
+
+| AS결과 키워드 | 마커 색상 | 아이콘 | 의미 | Kakao 이미지 |
+|-------------|---------|-------|------|------------|
+| 완료, 수리, 교체 | 🟢 초록색 | fa-check-circle | AS 완료 | marker_green.png |
+| 점검, 대기, 예정 | 🟡 노란색 | fa-clock | 점검/대기 중 | marker_yellow.png |
+| 기타 | 🔴 빨간색 | fa-exclamation-circle | 미완료/문제 | marker_red.png |
+| (없음) | ⭐ 파란색 | fa-circle | 기본 상태 | markerStar.png |
 
 ## 🗄️ 스토리지 서비스
 
@@ -205,12 +232,14 @@ pm2 restart webapp
 3. **고객 삭제**: 체크박스 선택 후 "선택 삭제" 버튼 클릭
 
 ### 3. 사용자 모드
-1. **T Map 보기**: AS 접수 고객 위치를 지도에서 확인
-2. **상태 확인**: 마커 색상으로 AS 완료 여부 확인
-3. **고객 상세**: 고객 항목 클릭하여 상세 정보 보기
-4. **길찾기**: 
-   - **Kakao Map에서 길 안내** (노란색 버튼)
-   - **T Map에서 길 안내** (파란색 버튼)
+1. **Kakao Maps 보기**: AS 접수 고객 위치를 지도에서 확인
+2. **지도 타입 전환**: 우측 상단 "위성 지도" 버튼으로 일반 ↔ 위성 전환
+3. **내 위치**: GPS 기반 현재 위치 표시 (빨간 펄스 애니메이션)
+4. **고객 목록**: 하단 패널에서 모든 고객 목록 확인
+5. **고객 검색**: 고객명으로 실시간 필터링
+6. **상태 확인**: 마커 색상으로 AS 완료 여부 확인
+7. **고객 상세**: 고객 항목 클릭하여 상세 정보 보기
+8. **길찾기**: Kakao Map에서 길 안내
 
 ### 4. Excel 파일 형식
 Excel 파일의 첫 번째 행은 헤더여야 합니다:
@@ -229,8 +258,9 @@ Excel 파일의 첫 번째 행은 헤더여야 합니다:
 
 - **플랫폼**: Node.js + PM2
 - **상태**: ✅ 활성
-- **최종 업데이트**: 2026-01-08
-- **안정 버전**: v1.0-stable-2026-01-08
+- **최종 업데이트**: 2026-02-03
+- **안정 버전**: v1.2-kakao-complete
+- **주요 변경**: T Map → Kakao Maps 완전 전환
 
 ## 🛠️ 개발 환경 설정
 
@@ -272,19 +302,16 @@ git reset --hard 8ff7d44             # 특정 커밋으로 복원
 
 ## 🔧 API 설정
 
-### T Map API
-- **App Key**: `vSWmSa8CcO4uvyc0EsAg46SWvxNVAKzL8KGbckPB`
-- **API 문서**: https://openapi.sk.com/
-
-### T Map API 기능:
-1. **지도 렌더링**: JavaScript API로 지도 표시
-2. **마커 표시**: AS 상태별 색상 구분
-3. **Geocoding**: 주소 → 좌표 변환
-4. **길찾기**: T Map 앱/웹 연동
-
-### Kakao Map API
+### Kakao Maps API
 - **JavaScript Key**: `c933c69ba4e0228895438c6a8c327e74`
 - **API 문서**: https://developers.kakao.com/
+
+### Kakao Maps API 기능:
+1. **지도 렌더링**: JavaScript API로 지도 표시
+2. **위성 지도 전환**: ROADMAP ↔ HYBRID
+3. **마커 표시**: AS 상태별 색상 구분
+4. **GPS CustomOverlay**: 펄스 애니메이션 마커
+5. **길찾기**: Kakao Map 앱/웹 연동
 
 ## 📝 API 엔드포인트
 
@@ -308,30 +335,47 @@ git reset --hard 8ff7d44             # 특정 커밋으로 복원
 
 ## 🎯 다음 개발 단계
 
-1. ✅ T Map 실제 통합
+1. ✅ Kakao Maps 완전 전환
 2. ✅ AS 상태별 마커 색상 구분
 3. ✅ 실시간 지도 마커 렌더링
-4. ✅ 로그인 비밀번호 표시/숨김
-5. ✅ T Map + Kakao Map 이중 길 안내
-6. ✅ 거리 단위 표시 (m/km)
-7. ✅ 접수일자 형식 개선
-8. ⏳ 회원가입 승인 시스템 완성
-9. ⏳ 영구 데이터베이스 연결 (SQLite/PostgreSQL)
-10. ⏳ 고객 필터링 및 검색 (AS결과, 지역, 날짜)
-11. ⏳ 클러스터링 (많은 고객 핀포인트 그룹화)
-12. ⏳ 통계 대시보드 (AS 완료율, 지역별, 팀별)
-13. ⏳ 방문 일정 관리
-14. ⏳ 모바일 반응형 최적화
-15. ⏳ 비밀번호 암호화 (bcrypt)
-16. ⏳ JWT 토큰 인증
+4. ✅ GPS 마커 펄스 애니메이션
+5. ✅ 위성 지도 토글 기능
+6. ✅ 고객 목록 기본 펼침 및 검색
+7. ✅ 로그인 비밀번호 표시/숨김
+8. ✅ 거리 단위 표시 (m/km)
+9. ✅ 접수일자 형식 개선
+10. ⏳ 회원가입 승인 시스템 완성
+11. ⏳ 영구 데이터베이스 연결 (SQLite/PostgreSQL)
+12. ⏳ 고객 필터링 및 검색 (AS결과, 지역, 날짜)
+13. ⏳ 클러스터링 (많은 고객 핀포인트 그룹화)
+14. ⏳ 통계 대시보드 (AS 완료율, 지역별, 팀별)
+15. ⏳ 방문 일정 관리
+16. ⏳ 모바일 반응형 최적화
+17. ⏳ 비밀번호 암호화 (bcrypt)
+18. ⏳ JWT 토큰 인증
 
 ## 🐛 문제 해결
 
-### T Map 지도가 표시되지 않는 경우
+### Kakao Maps가 표시되지 않는 경우
 1. 브라우저 캐시 완전 삭제 (Ctrl + Shift + R)
 2. 시크릿 모드로 접속
 3. 개발자 도구 Console 탭에서 오류 확인
-4. T Map API 키 확인
+4. Kakao Maps API 키 확인
+
+### GPS 마커가 표시되지 않는 경우
+1. 위치 권한 허용 확인
+2. 개발자 도구 Console 탭에서 GPS 로그 확인
+3. "내 위치" 버튼 클릭
+
+### 위성 지도가 전환되지 않는 경우
+1. "위성 지도" 버튼 클릭
+2. 개발자 도구 Console 탭에서 오류 확인
+3. Kakao Maps API 키 확인
+
+### 고객 목록이 보이지 않는 경우
+1. Excel 파일 업로드 확인
+2. 하단 패널 토글 버튼 (^) 클릭
+3. 고객 데이터 유무 확인
 
 ### 마커가 표시되지 않는 경우
 1. 고객 데이터에 latitude, longitude 값 확인
@@ -345,7 +389,7 @@ git reset --hard 8ff7d44             # 특정 커밋으로 복원
 4. 검증 결과에서 오류 메시지 확인
 
 ### 길 안내가 작동하지 않는 경우
-1. **모바일**: 앱 설치 확인 (T Map, Kakao Navi)
+1. **모바일**: 앱 설치 확인 (Kakao Navi)
 2. **데스크톱**: 팝업 차단 해제
 3. 고객 데이터에 위도/경도 확인
 4. 개발자 도구 Console 탭에서 오류 확인
@@ -361,10 +405,12 @@ GenSpark AI - AS 접수현황 관리 시스템
 ---
 
 **참고**: 
-- 📦 **안정 버전 백업**: https://www.genspark.ai/api/files/s/AFNsi47e
-- 🔖 **Git 태그**: v1.0-stable-2026-01-08
-- 📌 **커밋 해시**: 8ff7d44
-- T Map API는 이미 설정되어 있으며 정상 작동합니다.
+- 📦 **최신 백업 (v1.2)**: https://www.genspark.ai/api/files/s/NkRYmF41
+- 🔖 **Git 태그**: v1.2-kakao-complete-2026-02-03
+- 📌 **커밋 해시**: ede5e71
+- Kakao Maps API는 이미 설정되어 있으며 정상 작동합니다.
+- GPS 마커는 빨간색 펄스 애니메이션으로 표시됩니다.
+- 위성 지도는 버튼 클릭으로 전환 가능합니다.
 - 데이터는 메모리 기반이므로 서버 재시작 시 초기화됩니다.
 - 영구 데이터베이스 연결은 향후 추가될 예정입니다.
 - 회원가입 승인 시스템은 개발 중입니다.
