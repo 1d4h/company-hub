@@ -2302,6 +2302,8 @@ window.toggleCustomerPanel = toggleCustomerPanel
 window.moveToUserLocation = moveToUserLocation
 window.toggleMapType = toggleMapType
 window.togglePasswordVisibility = togglePasswordVisibility
+window.renderLogin = renderLogin
+window.renderRegister = renderRegister
 
 // ============================================
 // 앱 초기화
@@ -2318,6 +2320,15 @@ if (document.readyState === 'loading') {
 
 function initApp() {
   console.log('🎯 앱 초기화 시작...')
+  console.log('📍 DOM 상태:', document.readyState)
+  
+  const app = document.getElementById('app')
+  console.log('📍 app 엘리먼트:', app)
+  
+  if (!app) {
+    console.error('❌ app 엘리먼트를 찾을 수 없습니다!')
+    return
+  }
   
   // 세션 확인
   if (loadSession()) {
@@ -2331,7 +2342,16 @@ function initApp() {
     }
   } else {
     console.log('ℹ️ 세션 없음 - 로그인 화면 표시')
-    renderLogin()
+    
+    // 테스트: 직접 HTML 삽입
+    app.innerHTML = '<div style="padding: 50px; text-align: center; font-size: 24px;">테스트: 로그인 화면 로딩 중...</div>'
+    console.log('📍 app.innerHTML 설정 완료')
+    
+    // 실제 로그인 화면 렌더링
+    setTimeout(() => {
+      console.log('📍 renderLogin() 호출')
+      renderLogin()
+    }, 100)
   }
   
   console.log('✅ 앱 초기화 완료')
