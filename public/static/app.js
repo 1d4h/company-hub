@@ -347,21 +347,6 @@ function renderLogin() {
 }
 
 // 비밀번호 표시/숨김 토글 함수
-function togglePasswordVisibility(inputId, iconId) {
-  const input = document.getElementById(inputId)
-  const icon = document.getElementById(iconId)
-  
-  if (input.type === 'password') {
-    input.type = 'text'
-    icon.classList.remove('fa-eye')
-    icon.classList.add('fa-eye-slash')
-  } else {
-    input.type = 'password'
-    icon.classList.remove('fa-eye-slash')
-    icon.classList.add('fa-eye')
-  }
-}
-
 // 회원가입 화면
 function renderRegister() {
   const app = document.getElementById('app')
