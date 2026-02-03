@@ -8,7 +8,9 @@ const state = {
   map: null,
   markers: [],
   selectedCustomer: null,
-  uploadPreviewData: null
+  uploadPreviewData: null,
+  userLocation: null,  // GPS 위치
+  mapType: 'normal'    // 지도 타입: 'normal' | 'satellite'
 }
 
 // ============================================
@@ -189,7 +191,7 @@ function parseExcel(file) {
           '설치연,월': 'install_date',
           '열원': 'heat_source',
           '주소': 'address',
-          'AS접수내용': 'as_content',
+          'A/S접수내용': 'as_content',
           '설치팀': 'install_team',
           '지역': 'region',
           '접수자': 'receptionist',
@@ -720,7 +722,7 @@ function renderAdminDashboard() {
                     <i class="fas fa-info-circle mr-2"></i>템플릿 파일
                   </p>
                   <p class="text-xs text-blue-700">
-                    AS접수현황 Excel 템플릿을 다운로드하여 작성하세요
+                    A/S접수현황 Excel 템플릿을 다운로드하여 작성하세요
                   </p>
                 </div>
                 <button onclick="downloadSampleExcel()" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
@@ -771,6 +773,25 @@ function renderUserMap() {
       <!-- 지도/목록 컨테이너 -->
       <div class="flex-1 relative">
         <div id="map" class="w-full h-full"></div>
+        
+        <!-- 위성 지도 전환 버튼 -->
+        <div class="absolute top-4 right-4 z-10 flex flex-col space-y-2">
+          <button 
+            id="mapTypeToggle"
+            onclick="toggleMapType()" 
+            class="bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200"
+            title="지도 타입 전환"
+          >
+            <i id="mapTypeIcon" class="fas fa-satellite text-xl"></i>
+          </button>
+          <button 
+            onclick="moveToUserLocation()" 
+            class="bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200"
+            title="내 위치로 이동"
+          >
+            <i class="fas fa-location-arrow text-xl"></i>
+          </button>
+        </div>
         
         <!-- 고객 상세 정보 패널 (모바일 최적화: 전체 화면 모달) -->
         <div id="customerDetailPanel" class="hidden fixed inset-0 bg-white z-30 overflow-y-auto md:absolute md:top-4 md:right-4 md:left-auto md:bottom-auto md:rounded-xl md:shadow-xl md:w-80 md:max-h-[calc(100vh-120px)]">
@@ -1090,16 +1111,52 @@ function initTMap() {
   try {
     console.log('🗺️ T Map 지도 초기화 시작...')
     
-    // 서울 중심 좌표
-    const centerLat = 37.5665
-    const centerLng = 126.9780
+    // 서울 중심 좌표 (기본값)
+    const defaultCenterLat = 37.5665
+    const defaultCenterLng = 126.9780
     
     // 고객 좌표의 중심점 계산 (가장 밀집된 지역 찾기)
     const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
     console.log(`📍 표시할 고객 수: ${validCustomers.length}`)
     
     let center, zoom
-    if (validCustomers.length > 0) {
+    
+    // 🌐 GPS 위치 가져오기 시도
+    if (navigator.geolocation && !state.userLocation) {
+      console.log('📍 GPS 위치 요청 중...')
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          state.userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          }
+          console.log(`✅ GPS 위치 확인: ${state.userLocation.lat}, ${state.userLocation.lng}`)
+          
+          // GPS 위치로 지도 중심 이동
+          if (state.map) {
+            state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
+            showToast('현재 위치로 이동했습니다', 'success')
+          }
+        },
+        (error) => {
+          console.log('⚠️ GPS 위치 가져오기 실패:', error.message)
+          showToast('위치 권한이 필요합니다', 'info')
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      )
+    }
+    
+    // 지도 중심 결정 우선순위: 1) GPS 위치 2) 가장 밀집된 고객 지역 3) 서울 중심
+    if (state.userLocation) {
+      // GPS 위치 사용
+      console.log(`📍 GPS 위치로 지도 시작: ${state.userLocation.lat}, ${state.userLocation.lng}`)
+      center = new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng)
+      zoom = 15
+    } else if (validCustomers.length > 0) {
       // 가장 밀집된 지역 찾기 (각 고객 주변 반경 5km 내 고객 수 계산)
       let maxDensityCustomer = validCustomers[0]
       let maxDensity = 0
@@ -1126,7 +1183,8 @@ function initTMap() {
       center = new Tmapv2.LatLng(maxDensityCustomer.latitude, maxDensityCustomer.longitude)
       zoom = 14
     } else {
-      center = new Tmapv2.LatLng(centerLat, centerLng)
+      // 기본 서울 중심
+      center = new Tmapv2.LatLng(defaultCenterLat, defaultCenterLng)
       zoom = 13
     }
     
@@ -1137,11 +1195,13 @@ function initTMap() {
       height: '100%',
       zoom: zoom,
       zoomControl: true,
-      scrollwheel: true
+      scrollwheel: true,
+      mapTypeId: state.mapType === 'satellite' ? 'HYBRID' : 'ROADMAP'  // ROADMAP: 일반, HYBRID: 위성+도로
     })
     
     console.log('✅ T Map 객체 생성 완료', state.map)
     console.log('🗺️ 지도 중심:', center.toString(), '줌 레벨:', zoom)
+    console.log('🗺️ 지도 타입:', state.mapType)
     
     // 고객 마커 추가
     console.log(`📍 마커 생성 시작 - 고객 수: ${validCustomers.length}`)
@@ -1545,7 +1605,7 @@ function removeAttachedFile() {
 function downloadSampleExcel() {
   // 샘플 데이터 생성 (실제 업무 양식)
   const sampleData = [
-    ['순번', '횟수', '접수일자', '업체', '구분', '고객명', '전화번호', '설치연,월', '열원', '주소', 'AS접수내용', '설치팀', '지역', '접수자', 'AS결과'],
+    ['순번', '횟수', '접수일자', '업체', '구분', '고객명', '전화번호', '설치연,월', '열원', '주소', 'A/S접수내용', '설치팀', '지역', '접수자', 'AS결과'],
     [1, 1, '2024-01-15', '서울지사', 'AS', '김철수', '010-1234-5678', '2023-12', '가스', '서울특별시 강남구 테헤란로 123', '온수 온도 조절 불량', '1팀', '강남', '홍길동', '수리 완료'],
     [2, 1, '2024-01-16', '서울지사', 'AS', '이영희', '010-2345-6789', '2023-11', '전기', '서울특별시 서초구 서초대로 78길 22', '난방 작동 불량', '2팀', '서초', '김영희', '부품 교체 완료'],
     [3, 2, '2024-01-17', '서울지사', 'AS', '박민수', '010-3456-7890', '2023-10', '가스', '서울특별시 송파구 올림픽로 300', '보일러 소음 발생', '1팀', '송파', '홍길동', '점검 완료']
@@ -1567,17 +1627,17 @@ function downloadSampleExcel() {
     { wch: 12 },  // 설치연,월
     { wch: 8 },   // 열원
     { wch: 40 },  // 주소
-    { wch: 30 },  // AS접수내용
+    { wch: 30 },  // A/S접수내용
     { wch: 10 },  // 설치팀
     { wch: 10 },  // 지역
     { wch: 10 },  // 접수자
     { wch: 20 }   // AS결과
   ]
   
-  XLSX.utils.book_append_sheet(wb, ws, 'AS접수현황')
+  XLSX.utils.book_append_sheet(wb, ws, 'A/S접수현황')
   
   // 파일 다운로드
-  XLSX.writeFile(wb, 'AS접수현황_템플릿.xlsx')
+  XLSX.writeFile(wb, 'A/S접수현황_템플릿.xlsx')
   showToast('템플릿 파일이 다운로드되었습니다', 'success')
 }
 
@@ -1819,7 +1879,7 @@ function showCustomerDetail(customerId) {
       </div>
       
       <div>
-        <p class="text-sm text-gray-600">AS접수내용</p>
+        <p class="text-sm text-gray-600">A/S접수내용</p>
         <p class="text-gray-800">${customer.as_content || '-'}</p>
       </div>
       
@@ -1985,6 +2045,89 @@ function toggleCustomerPanel() {
     content.style.display = 'none'
     panel.style.maxHeight = '80px'
     icon.className = 'fas fa-chevron-up text-xl'
+  }
+}
+
+// 지도 타입 전환 (일반 ↔ 위성)
+function toggleMapType() {
+  if (!state.map) {
+    showToast('지도를 먼저 로드해주세요', 'error')
+    return
+  }
+  
+  // 지도 타입 전환
+  if (state.mapType === 'normal') {
+    state.mapType = 'satellite'
+    state.map.setMapTypeId('HYBRID')  // 위성 + 도로
+    document.getElementById('mapTypeIcon').className = 'fas fa-map text-xl'
+    showToast('위성 지도로 전환되었습니다', 'success')
+  } else {
+    state.mapType = 'normal'
+    state.map.setMapTypeId('ROADMAP')  // 일반 지도
+    document.getElementById('mapTypeIcon').className = 'fas fa-satellite text-xl'
+    showToast('일반 지도로 전환되었습니다', 'success')
+  }
+  
+  console.log('🗺️ 지도 타입 변경:', state.mapType)
+}
+
+// 내 위치로 이동
+function moveToUserLocation() {
+  if (!state.map) {
+    showToast('지도를 먼저 로드해주세요', 'error')
+    return
+  }
+  
+  if (state.userLocation) {
+    // 저장된 GPS 위치로 이동
+    state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
+    state.map.setZoom(16)
+    showToast('현재 위치로 이동했습니다', 'success')
+  } else {
+    // GPS 위치 새로 요청
+    if (!navigator.geolocation) {
+      showToast('GPS를 지원하지 않는 브라우저입니다', 'error')
+      return
+    }
+    
+    showToast('GPS 위치를 가져오는 중...', 'info')
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        state.userLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        }
+        
+        console.log(`✅ GPS 위치: ${state.userLocation.lat}, ${state.userLocation.lng}`)
+        state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
+        state.map.setZoom(16)
+        showToast('현재 위치로 이동했습니다', 'success')
+      },
+      (error) => {
+        console.error('GPS 오류:', error)
+        let errorMsg = '위치를 가져올 수 없습니다'
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = '위치 권한이 거부되었습니다'
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = '위치 정보를 사용할 수 없습니다'
+            break
+          case error.TIMEOUT:
+            errorMsg = '위치 요청 시간이 초과되었습니다'
+            break
+        }
+        
+        showToast(errorMsg, 'error')
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    )
   }
 }
 
