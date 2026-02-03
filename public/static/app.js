@@ -10,8 +10,7 @@ const state = {
   selectedCustomer: null,
   uploadPreviewData: null,
   userLocation: null,  // GPS 위치
-  userLocationMarker: null,  // GPS 마커
-  mapType: 'normal'    // 지도 타입: 'normal' | 'satellite'
+  userLocationMarker: null  // GPS 마커
 }
 
 // ============================================
@@ -775,22 +774,14 @@ function renderUserMap() {
       <div class="flex-1 relative">
         <div id="map" class="w-full h-full"></div>
         
-        <!-- 위성 지도 전환 버튼 -->
-        <div class="absolute top-4 right-4 z-10 flex flex-col space-y-2">
-          <button 
-            id="mapTypeToggle"
-            onclick="toggleMapType()" 
-            class="bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200"
-            title="지도 타입 전환"
-          >
-            <i id="mapTypeIcon" class="fas fa-satellite text-xl"></i>
-          </button>
+        <!-- 내 위치 버튼 -->
+        <div class="absolute top-4 right-4 z-10">
           <button 
             onclick="moveToUserLocation()" 
-            class="bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200"
-            title="내 위치로 이동"
+            class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200 flex items-center space-x-2"
           >
-            <i class="fas fa-location-arrow text-xl"></i>
+            <i class="fas fa-location-arrow"></i>
+            <span class="font-medium">내 위치 보기</span>
           </button>
         </div>
         
@@ -1122,46 +1113,8 @@ function initTMap() {
     
     let center, zoom
     
-    // 🌐 GPS 위치 가져오기 시도
-    if (navigator.geolocation && !state.userLocation) {
-      console.log('📍 GPS 위치 요청 중...')
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          state.userLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          }
-          console.log(`✅ GPS 위치 확인: ${state.userLocation.lat}, ${state.userLocation.lng}`)
-          
-          // GPS 위치로 지도 중심 이동
-          if (state.map) {
-            state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
-            
-            // GPS 마커 추가
-            addUserLocationMarker()
-            
-            showToast('현재 위치로 이동했습니다', 'success')
-          }
-        },
-        (error) => {
-          console.log('⚠️ GPS 위치 가져오기 실패:', error.message)
-          showToast('위치 권한이 필요합니다', 'info')
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      )
-    }
-    
-    // 지도 중심 결정 우선순위: 1) GPS 위치 2) 가장 밀집된 고객 지역 3) 서울 중심
-    if (state.userLocation) {
-      // GPS 위치 사용
-      console.log(`📍 GPS 위치로 지도 시작: ${state.userLocation.lat}, ${state.userLocation.lng}`)
-      center = new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng)
-      zoom = 15
-    } else if (validCustomers.length > 0) {
+    // 지도 중심 결정: 1) 가장 밀집된 고객 지역 2) 서울 중심
+    if (validCustomers.length > 0) {
       // 가장 밀집된 지역 찾기 (각 고객 주변 반경 5km 내 고객 수 계산)
       let maxDensityCustomer = validCustomers[0]
       let maxDensity = 0
@@ -1299,16 +1252,63 @@ function initTMap() {
     
     console.log(`✅ T Map 초기화 완료: ${validCustomers.length}개의 마커 생성 시도, ${state.markers.length}개 성공`)
     
-    // GPS 위치 마커 추가 (있는 경우)
-    addUserLocationMarker()
-    
     showToast('지도가 로드되었습니다', 'success')
+    
+    // 지도 초기화 완료 후 GPS 위치 요청
+    requestUserLocation()
     
   } catch (error) {
     console.error('❌ T Map 초기화 오류:', error)
     showMapFallback()
     showToast('지도 로드 실패: T Map API를 확인해주세요', 'error')
   }
+}
+
+// GPS 위치 요청
+function requestUserLocation() {
+  if (!navigator.geolocation) {
+    console.log('⚠️ GPS를 지원하지 않는 브라우저입니다')
+    return
+  }
+  
+  if (state.userLocation) {
+    console.log('✅ GPS 위치 이미 존재:', state.userLocation)
+    addUserLocationMarker()
+    return
+  }
+  
+  console.log('📍 GPS 위치 요청 중...')
+  
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      state.userLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      }
+      console.log(`✅ GPS 위치 확인: ${state.userLocation.lat}, ${state.userLocation.lng}`)
+      
+      // GPS 위치로 지도 중심 이동 (고객이 없을 때만)
+      if (state.map && state.customers.length === 0) {
+        state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
+        state.map.setZoom(15)
+        showToast('현재 위치로 이동했습니다', 'success')
+      }
+      
+      // GPS 마커 추가
+      addUserLocationMarker()
+    },
+    (error) => {
+      console.log('⚠️ GPS 위치 가져오기 실패:', error.message)
+      console.log('오류 코드:', error.code, '| PERMISSION_DENIED=1, POSITION_UNAVAILABLE=2, TIMEOUT=3')
+      
+      // 사용자에게 안내하지 않음 (조용히 실패)
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+  )
 }
 
 // GPS 위치 마커 추가
@@ -2100,82 +2100,6 @@ function toggleCustomerPanel() {
     panel.style.maxHeight = '80px'
     icon.className = 'fas fa-chevron-up text-xl'
   }
-}
-
-// 지도 타입 전환 (일반 ↔ 위성)
-function toggleMapType() {
-  if (!state.map) {
-    showToast('지도를 먼저 로드해주세요', 'error')
-    return
-  }
-  
-  console.log('🗺️ 지도 타입 전환 시도:', state.mapType, '→', state.mapType === 'normal' ? 'satellite' : 'normal')
-  
-  try {
-    // 지도 타입 전환
-    if (state.mapType === 'normal') {
-      state.mapType = 'satellite'
-      
-      // T Map 위성 지도 설정
-      try {
-        // 방법 1: setMapType 시도
-        if (typeof state.map.setMapType === 'function') {
-          state.map.setMapType('SATELLITE')
-          console.log('✅ setMapType(SATELLITE) 성공')
-        }
-        // 방법 2: setMapTypeId 시도  
-        else if (typeof state.map.setMapTypeId === 'function') {
-          state.map.setMapTypeId('SATELLITE')
-          console.log('✅ setMapTypeId(SATELLITE) 성공')
-        }
-        // 방법 3: 지도 재생성 (폴백)
-        else {
-          console.log('⚠️ 위성 지도 API 없음 - T Map은 위성 지도를 지원하지 않을 수 있습니다')
-          showToast('T Map은 위성 지도를 지원하지 않습니다', 'info')
-          state.mapType = 'normal' // 원래대로 복구
-          return
-        }
-      } catch (apiError) {
-        console.error('❌ 위성 지도 API 호출 오류:', apiError)
-        throw apiError
-      }
-      
-      document.getElementById('mapTypeIcon').className = 'fas fa-map text-xl'
-      showToast('위성 지도로 전환되었습니다', 'success')
-      console.log('✅ 위성 지도로 전환 완료')
-    } else {
-      state.mapType = 'normal'
-      
-      // T Map 일반 지도 설정
-      try {
-        if (typeof state.map.setMapType === 'function') {
-          state.map.setMapType('ROADMAP')
-          console.log('✅ setMapType(ROADMAP) 성공')
-        } else if (typeof state.map.setMapTypeId === 'function') {
-          state.map.setMapTypeId('ROADMAP')
-          console.log('✅ setMapTypeId(ROADMAP) 성공')
-        }
-      } catch (apiError) {
-        console.error('❌ 일반 지도 API 호출 오류:', apiError)
-        throw apiError
-      }
-      
-      document.getElementById('mapTypeIcon').className = 'fas fa-satellite text-xl'
-      showToast('일반 지도로 전환되었습니다', 'success')
-      console.log('✅ 일반 지도로 전환 완료')
-    }
-  } catch (error) {
-    console.error('❌ 지도 타입 전환 오류:', error)
-    console.error('오류 상세:', {
-      message: error.message,
-      stack: error.stack,
-      map: state.map,
-      mapMethods: state.map ? Object.keys(state.map).filter(k => typeof state.map[k] === 'function') : []
-    })
-    showToast('지도 타입 전환에 실패했습니다', 'error')
-  }
-  
-  console.log('🗺️ 현재 지도 타입:', state.mapType)
 }
 
 // 내 위치로 이동
