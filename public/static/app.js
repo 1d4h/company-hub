@@ -10,6 +10,7 @@ const state = {
   selectedCustomer: null,
   uploadPreviewData: null,
   userLocation: null,  // GPS 위치
+  userLocationMarker: null,  // GPS 마커
   mapType: 'normal'    // 지도 타입: 'normal' | 'satellite'
 }
 
@@ -1135,6 +1136,10 @@ function initTMap() {
           // GPS 위치로 지도 중심 이동
           if (state.map) {
             state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
+            
+            // GPS 마커 추가
+            addUserLocationMarker()
+            
             showToast('현재 위치로 이동했습니다', 'success')
           }
         },
@@ -1189,6 +1194,10 @@ function initTMap() {
     }
     
     // T Map 생성
+    const mapTypeId = state.mapType === 'satellite' 
+      ? (typeof Tmapv2.MapTypeId !== 'undefined' ? Tmapv2.MapTypeId.HYBRID : 'HYBRID')
+      : (typeof Tmapv2.MapTypeId !== 'undefined' ? Tmapv2.MapTypeId.ROADMAP : 'ROADMAP')
+    
     state.map = new Tmapv2.Map('map', {
       center: center,
       width: '100%',
@@ -1196,12 +1205,12 @@ function initTMap() {
       zoom: zoom,
       zoomControl: true,
       scrollwheel: true,
-      mapTypeId: state.mapType === 'satellite' ? 'HYBRID' : 'ROADMAP'  // ROADMAP: 일반, HYBRID: 위성+도로
+      mapTypeId: mapTypeId
     })
     
     console.log('✅ T Map 객체 생성 완료', state.map)
     console.log('🗺️ 지도 중심:', center.toString(), '줌 레벨:', zoom)
-    console.log('🗺️ 지도 타입:', state.mapType)
+    console.log('🗺️ 지도 타입:', state.mapType, '→', mapTypeId)
     
     // 고객 마커 추가
     console.log(`📍 마커 생성 시작 - 고객 수: ${validCustomers.length}`)
@@ -1294,12 +1303,96 @@ function initTMap() {
     })
     
     console.log(`✅ T Map 초기화 완료: ${validCustomers.length}개의 마커 생성 시도, ${state.markers.length}개 성공`)
+    
+    // GPS 위치 마커 추가 (있는 경우)
+    addUserLocationMarker()
+    
     showToast('지도가 로드되었습니다', 'success')
     
   } catch (error) {
     console.error('❌ T Map 초기화 오류:', error)
     showMapFallback()
     showToast('지도 로드 실패: T Map API를 확인해주세요', 'error')
+  }
+}
+
+// GPS 위치 마커 추가
+function addUserLocationMarker() {
+  if (!state.map || !state.userLocation) {
+    return
+  }
+  
+  try {
+    // 기존 GPS 마커 제거
+    if (state.userLocationMarker) {
+      state.userLocationMarker.setMap(null)
+      state.userLocationMarker = null
+    }
+    
+    console.log('📍 GPS 마커 생성:', state.userLocation.lat, state.userLocation.lng)
+    
+    // GPS 위치 마커 생성 (파란색 점 + 외부 링)
+    const markerHtml = `
+      <div class='_t_gps_marker' style="position:relative; width: 40px; height: 40px; cursor: pointer;">
+        <!-- 외부 펄스 효과 -->
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 40px;
+          height: 40px;
+          background: rgba(59, 130, 246, 0.2);
+          border-radius: 50%;
+          animation: pulse 2s infinite;
+        "></div>
+        
+        <!-- 내부 점 -->
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 16px;
+          height: 16px;
+          background: #3B82F6;
+          border: 3px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        "></div>
+      </div>
+      
+      <style>
+        @keyframes pulse {
+          0% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.7;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(1.3);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.7;
+          }
+        }
+      </style>
+    `
+    
+    const marker = new Tmapv2.Marker({
+      position: new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng),
+      map: state.map,
+      icon: markerHtml,
+      iconSize: new Tmapv2.Size(40, 40),
+      title: '현재 위치'
+    })
+    
+    state.userLocationMarker = marker
+    console.log('✅ GPS 마커 추가 완료')
+    
+  } catch (error) {
+    console.error('❌ GPS 마커 생성 실패:', error)
   }
 }
 
@@ -2055,20 +2148,43 @@ function toggleMapType() {
     return
   }
   
-  // 지도 타입 전환
-  if (state.mapType === 'normal') {
-    state.mapType = 'satellite'
-    state.map.setMapTypeId('HYBRID')  // 위성 + 도로
-    document.getElementById('mapTypeIcon').className = 'fas fa-map text-xl'
-    showToast('위성 지도로 전환되었습니다', 'success')
-  } else {
-    state.mapType = 'normal'
-    state.map.setMapTypeId('ROADMAP')  // 일반 지도
-    document.getElementById('mapTypeIcon').className = 'fas fa-satellite text-xl'
-    showToast('일반 지도로 전환되었습니다', 'success')
+  console.log('🗺️ 지도 타입 전환 시도:', state.mapType, '→', state.mapType === 'normal' ? 'satellite' : 'normal')
+  
+  try {
+    // 지도 타입 전환
+    if (state.mapType === 'normal') {
+      state.mapType = 'satellite'
+      
+      // T Map의 위성 지도 타입 시도
+      if (typeof Tmapv2.MapTypeId !== 'undefined') {
+        state.map.setMapTypeId(Tmapv2.MapTypeId.HYBRID || 'HYBRID')
+      } else {
+        state.map.setMapTypeId('HYBRID')
+      }
+      
+      document.getElementById('mapTypeIcon').className = 'fas fa-map text-xl'
+      showToast('위성 지도로 전환되었습니다', 'success')
+      console.log('✅ 위성 지도로 전환 완료')
+    } else {
+      state.mapType = 'normal'
+      
+      // T Map의 일반 지도 타입 시도
+      if (typeof Tmapv2.MapTypeId !== 'undefined') {
+        state.map.setMapTypeId(Tmapv2.MapTypeId.ROADMAP || 'ROADMAP')
+      } else {
+        state.map.setMapTypeId('ROADMAP')
+      }
+      
+      document.getElementById('mapTypeIcon').className = 'fas fa-satellite text-xl'
+      showToast('일반 지도로 전환되었습니다', 'success')
+      console.log('✅ 일반 지도로 전환 완료')
+    }
+  } catch (error) {
+    console.error('❌ 지도 타입 전환 오류:', error)
+    showToast('지도 타입 전환에 실패했습니다', 'error')
   }
   
-  console.log('🗺️ 지도 타입 변경:', state.mapType)
+  console.log('🗺️ 현재 지도 타입:', state.mapType)
 }
 
 // 내 위치로 이동
@@ -2082,6 +2198,10 @@ function moveToUserLocation() {
     // 저장된 GPS 위치로 이동
     state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
     state.map.setZoom(16)
+    
+    // GPS 마커 업데이트
+    addUserLocationMarker()
+    
     showToast('현재 위치로 이동했습니다', 'success')
   } else {
     // GPS 위치 새로 요청
@@ -2102,6 +2222,10 @@ function moveToUserLocation() {
         console.log(`✅ GPS 위치: ${state.userLocation.lat}, ${state.userLocation.lng}`)
         state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
         state.map.setZoom(16)
+        
+        // GPS 마커 추가
+        addUserLocationMarker()
+        
         showToast('현재 위치로 이동했습니다', 'success')
       },
       (error) => {
