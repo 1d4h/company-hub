@@ -1275,17 +1275,21 @@ function initKakaoMap() {
         
         customOverlay.setMap(state.map)
         
-        // 클릭 이벤트 (DOM 이벤트)
-        const overlayElement = customOverlay.getContent()
-        overlayElement.addEventListener('click', function() {
-          console.log('🖱️ 마커 클릭:', customer.customer_name)
-          
-          // 고객 상세 정보 표시
-          showCustomerDetailOnMap(customer)
-          
-          // 클릭한 위치 기준으로 거리순 고객 목록 표시
-          showNearbyCustomers(customer.latitude, customer.longitude)
-        })
+        // 클릭 이벤트: DOM이 렌더링된 후에 이벤트 리스너 추가
+        setTimeout(() => {
+          const markerElement = document.querySelector(`.custom-marker[data-customer-id="${customer.id}"]`)
+          if (markerElement) {
+            markerElement.addEventListener('click', function() {
+              console.log('🖱️ 마커 클릭:', customer.customer_name)
+              
+              // 고객 상세 정보 표시
+              showCustomerDetailOnMap(customer)
+              
+              // 클릭한 위치 기준으로 거리순 고객 목록 표시
+              showNearbyCustomers(customer.latitude, customer.longitude)
+            })
+          }
+        }, 100)
         
         state.markers.push(customOverlay)
         console.log(`✅ 마커 ${index + 1} 생성 완료: ${customer.customer_name} (${statusText})`)
