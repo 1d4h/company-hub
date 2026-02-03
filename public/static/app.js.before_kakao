@@ -910,7 +910,7 @@ function renderUserMap() {
     // DOM이 완전히 렌더링될 때까지 대기
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        // T Map API 로드 시도
+        // Kakao Maps API 로드 시도
         const mapDiv = document.getElementById('map')
         if (!mapDiv) {
           console.error('❌ 지도 컨테이너를 찾을 수 없습니다')
@@ -1075,10 +1075,10 @@ function showMapFallback() {
         </div>
         <h2 class="text-2xl font-bold text-gray-800 mb-3">T Map 로딩 중</h2>
         <p class="text-gray-600 mb-4">
-          T Map API를 불러오는 중입니다. 잠시만 기다려주세요.
+          Kakao Maps API를 불러오는 중입니다. 잠시만 기다려주세요.
         </p>
         <div class="bg-white rounded-lg p-4 mb-4 text-left shadow-sm">
-          <p class="text-sm font-semibold text-gray-700 mb-2">T Map API 상태:</p>
+          <p class="text-sm font-semibold text-gray-700 mb-2">Kakao Maps API 상태:</p>
           <p class="text-xs text-gray-600">
             페이지를 새로고침하면 지도가 표시됩니다.
           </p>
@@ -1165,7 +1165,7 @@ function initKakaoMap() {
     const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
     console.log(`📍 표시할 고객 수: ${validCustomers.length}`)
     
-    let centerLat, centerLng, level
+    let center, zoom
     
     // 지도 중심 결정: 1) 가장 밀집된 고객 지역 2) 서울 중심
     if (validCustomers.length > 0) {
@@ -1192,34 +1192,27 @@ function initKakaoMap() {
       })
       
       console.log(`🎯 가장 밀집된 지역: ${maxDensityCustomer.customer_name} 주변 (${maxDensity}명)`)
-      centerLat = maxDensityCustomer.latitude
-      centerLng = maxDensityCustomer.longitude
-      level = 8  // Kakao Maps level (낮을수록 확대)
+      center = new kakao.maps.LatLng(maxDensityCustomer.latitude, maxDensityCustomer.longitude)
+      zoom = 14
     } else {
       // 기본 서울 중심
-      centerLat = defaultCenterLat
-      centerLng = defaultCenterLng
-      level = 9
+      center = new kakao.maps.LatLng(defaultCenterLat, defaultCenterLng)
+      zoom = 13
     }
     
-    // Kakao Maps 생성
-    const mapOption = {
-      center: new kakao.maps.LatLng(centerLat, centerLng),
-      level: level
-    }
+    // T Map 생성
+    state.map = new kakao.maps.Map('map', {
+      center: center,
+      width: '100%',
+      height: '100%',
+      zoom: zoom,
+      zoomControl: true,
+      scrollwheel: true
+    })
     
-    state.map = new kakao.maps.Map(mapDiv, mapOption)
-    
-    // 지도 타입 컨트롤 추가 (일반/위성 전환)
-    const mapTypeControl = new kakao.maps.MapTypeControl()
-    state.map.addControl(mapTypeControl, kakao.maps.ControlPosition.TOPRIGHT)
-    
-    // 줌 컨트롤 추가
-    const zoomControl = new kakao.maps.ZoomControl()
-    state.map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT)
-    
-    console.log('✅ Kakao Maps 객체 생성 완료')
-    console.log('🗺️ 지도 중심:', centerLat, centerLng, 'Level:', level)
+    console.log('✅ Kakao Maps 객체 생성 완료', state.map)
+    console.log('🗺️ 지도 중심:', center.toString(), '줌 레벨:', zoom)
+    console.log('🗺️ 지도 객체 메서드:', Object.keys(state.map).filter(k => typeof state.map[k] === 'function').slice(0, 10))
     
     // 고객 마커 추가
     console.log(`📍 마커 생성 시작 - 고객 수: ${validCustomers.length}`)
@@ -1229,41 +1222,83 @@ function initKakaoMap() {
         // AS결과에 따라 마커 색상 결정
         const markerColor = getMarkerColorByStatus(customer.as_result)
         
-        // Kakao Maps 기본 마커 이미지 URL
-        let markerImageUrl
-        if (markerColor === 'g') {
-          markerImageUrl = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_green.png'
-        } else if (markerColor === 'y') {
-          markerImageUrl = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_yellow.png'
-        } else if (markerColor === 'r') {
-          markerImageUrl = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png'
-        } else {
-          markerImageUrl = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png'
-        }
+        // 색상별 SVG 아이콘 선택
+        let markerColorName = 'blue'
+        if (markerColor === 'g') markerColorName = 'green'
+        else if (markerColor === 'y') markerColorName = 'yellow'
+        else if (markerColor === 'r') markerColorName = 'red'
         
-        const imageSize = new kakao.maps.Size(24, 35)
-        const markerImage = new kakao.maps.MarkerImage(markerImageUrl, imageSize)
+        console.log(`📍 마커 ${index + 1}: ${customer.customer_name} (${customer.latitude}, ${customer.longitude}) - 색상: ${markerColorName}`)
+        
+        // SVG 기반 마커 (모바일 터치 최적화)
+        const markerSize = 56 // 48px → 56px (모바일 터치 영역 확대)
+        const markerHtml = `
+          <div class='_t_marker' style="position:relative; width: ${markerSize}px; height: ${markerSize}px; cursor: pointer; touch-action: manipulation;">
+            <svg width="${markerSize}" height="${markerSize}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M24 2C15.163 2 8 9.163 8 18C8 29.25 24 46 24 46C24 46 40 29.25 40 18C40 9.163 32.837 2 24 2Z" 
+                    fill="${markerColorName === 'green' ? '#10B981' : markerColorName === 'yellow' ? '#F59E0B' : markerColorName === 'red' ? '#EF4444' : '#3B82F6'}" 
+                    stroke="white" stroke-width="2"/>
+              <circle cx="24" cy="18" r="6" fill="white"/>
+            </svg>
+            <div style="position:absolute; top:0; left:0; width:${markerSize}px; height:${markerSize}px; display:flex; align-items:center; justify-content: center; padding-bottom: 16px;">
+              <span style="color:${markerColorName === 'green' ? '#10B981' : markerColorName === 'yellow' ? '#F59E0B' : markerColorName === 'red' ? '#EF4444' : '#3B82F6'}; font-weight: 700; font-size: 16px;">📍</span>
+            </div>
+          </div>
+        `
         
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(customer.latitude, customer.longitude),
           map: state.map,
           title: customer.customer_name,
-          image: markerImage
+          iconHTML: markerHtml,
+          iconSize: new kakao.maps.Size(markerSize, markerSize),
+          offset: new kakao.maps.Point(markerSize / 2, markerSize)
         })
         
-        // 클릭 이벤트
-        kakao.maps.event.addListener(marker, 'click', function() {
-          console.log('🖱️ 마커 클릭:', customer.customer_name)
+        // 터치 이벤트 핸들러 함수
+        const handleMarkerTouch = function() {
+          console.log('🖱️ 마커 클릭/터치:', customer.customer_name)
           
           // 고객 상세 정보 표시
           showCustomerDetailOnMap(customer)
           
           // 클릭한 위치 기준으로 거리순 고객 목록 표시
           showNearbyCustomers(customer.latitude, customer.longitude)
-        })
+        }
+        
+        // 클릭 이벤트 (데스크톱)
+        kakao.maps.event.addListener(marker, 'click', handleMarkerTouch)
+        
+        // 터치 이벤트 (모바일) - DOM 요소에 직접 추가
+        setTimeout(() => {
+          const markerElement = marker.getElement()
+          if (markerElement) {
+            // 기존 이벤트 제거 (중복 방지)
+            markerElement.removeEventListener('touchstart', handleMarkerTouch)
+            markerElement.removeEventListener('touchend', handleMarkerTouch)
+            
+            // 터치 이벤트 추가
+            markerElement.addEventListener('touchstart', function(e) {
+              e.preventDefault()
+              e.stopPropagation()
+            }, { passive: false })
+            
+            markerElement.addEventListener('touchend', function(e) {
+              e.preventDefault()
+              e.stopPropagation()
+              handleMarkerTouch()
+            }, { passive: false })
+            
+            // 터치 영역 확대 (CSS)
+            markerElement.style.touchAction = 'manipulation'
+            markerElement.style.cursor = 'pointer'
+            
+            console.log('✅ 터치 이벤트 추가:', customer.customer_name)
+          }
+        }, 100)
         
         state.markers.push(marker)
-        console.log(`✅ 마커 ${index + 1} 생성 완료: ${customer.customer_name}`)
+        console.log(`✅ 마커 ${index + 1} 생성 완료`)
       } catch (error) {
         console.error(`❌ 마커 ${index + 1} 생성 실패:`, error)
       }
@@ -1277,7 +1312,7 @@ function initKakaoMap() {
     requestUserLocation()
     
   } catch (error) {
-    console.error('❌ Kakao Maps 초기화 실패:', error)
+    console.error('❌ Kakao Maps 초기화 오류:', error)
     showMapFallback()
     showToast('지도 로드 실패: Kakao Maps API를 확인해주세요', 'error')
   }
@@ -1309,8 +1344,8 @@ function requestUserLocation() {
       
       // GPS 위치로 지도 중심 이동
       if (state.map) {
-        state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
-        state.map.setZoom(16)
+        state.map.setCenter(new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng))
+        state.map.setLevel(16)
         showToast('현재 위치로 이동했습니다', 'success')
       }
       
@@ -1352,9 +1387,10 @@ function addUserLocationMarker() {
     
     console.log('📍 GPS 마커 생성 시작:', state.userLocation.lat, state.userLocation.lng)
     
-    // Kakao CustomOverlay로 펄스 애니메이션 마커 생성
-    const markerContent = `
-      <div style="position: relative; width: 80px; height: 80px; transform: translate(-50%, -50%);">
+    // 펄스 애니메이션이 있는 GPS 마커 (HTML 방식)
+    const markerSize = 80
+    const markerHtml = `
+      <div style="position: relative; width: ${markerSize}px; height: ${markerSize}px; transform: translate(-50%, -50%);">
         <!-- 펄스 애니메이션 외부 링 -->
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: rgba(255, 0, 0, 0.3); border-radius: 50%; animation: pulse-gps 2s infinite;"></div>
         <!-- 중간 링 -->
@@ -1380,15 +1416,15 @@ function addUserLocationMarker() {
       </style>
     `
     
-    const customOverlay = new kakao.maps.CustomOverlay({
+    const marker = new kakao.maps.Marker({
       position: new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng),
-      content: markerContent,
-      zIndex: 999
+      map: state.map,
+      iconHTML: markerHtml,
+      iconSize: new kakao.maps.Size(markerSize, markerSize),
+      title: '현재 위치'
     })
     
-    customOverlay.setMap(state.map)
-    state.userLocationMarker = customOverlay
-    
+    state.userLocationMarker = marker
     console.log('✅ GPS 마커 추가 완료 (빨간색 펄스 애니메이션)')
     
   } catch (error) {
@@ -2012,8 +2048,8 @@ function showCustomerDetail(customerId) {
   
   // 지도에서 해당 고객 위치로 이동
   if (state.map && customer.latitude && customer.longitude) {
-    state.map.setCenter(new Tmapv2.LatLng(customer.latitude, customer.longitude))
-    state.map.setZoom(17)
+    state.map.setCenter(new kakao.maps.LatLng(customer.latitude, customer.longitude))
+    state.map.setLevel(17)
   }
 }
 
@@ -2208,33 +2244,24 @@ function toggleMapType() {
     return
   }
   
-  try {
-    const mapTypeText = document.getElementById('mapTypeText')
-    const mapTypeIcon = document.getElementById('mapTypeIcon')
-    
-    if (state.mapType === 'normal') {
-      // 위성 지도로 전환
-      state.map.setMapTypeId(kakao.maps.MapTypeId.HYBRID)
-      state.mapType = 'satellite'
-      if (mapTypeText) mapTypeText.textContent = '일반 지도'
-      if (mapTypeIcon) mapTypeIcon.className = 'fas fa-map'
-      showToast('위성 지도로 전환되었습니다', 'success')
-    } else {
-      // 일반 지도로 전환
-      state.map.setMapTypeId(kakao.maps.MapTypeId.ROADMAP)
-      state.mapType = 'normal'
-      if (mapTypeText) mapTypeText.textContent = '위성 지도'
-      if (mapTypeIcon) mapTypeIcon.className = 'fas fa-satellite'
-      showToast('일반 지도로 전환되었습니다', 'success')
-    }
-    
-    console.log('✅ 지도 타입 전환 완료:', state.mapType)
-  } catch (error) {
-    console.error('❌ 지도 타입 전환 실패:', error)
-    showToast('지도 타입 전환에 실패했습니다', 'error')
+  // 현재 T Map 중심 좌표 가져오기
+  const center = state.map.getCenter()
+  const lat = center.lat()
+  const lng = center.lng()
+  
+  // Kakao Maps 위성 지도 URL로 이동
+  const kakaoSatelliteUrl = `https://map.kakao.com/?urlX=${lng * 10000000}&urlY=${lat * 10000000}&urlLevel=3&map_type=skyview`
+  
+  showToast('Kakao Maps 위성 지도로 이동합니다', 'info')
+  
+  // 모바일에서는 현재 탭에서 열기, 데스크톱에서는 새 탭
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+  if (isMobile) {
+    window.location.href = kakaoSatelliteUrl
+  } else {
+    window.open(kakaoSatelliteUrl, '_blank')
   }
 }
-
 
 // 내 위치로 이동
 function moveToUserLocation() {
@@ -2245,9 +2272,8 @@ function moveToUserLocation() {
   
   if (state.userLocation) {
     // 저장된 GPS 위치로 이동
-    const moveLatLon = new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng)
-    state.map.setCenter(moveLatLon)
-    state.map.setLevel(4)  // Kakao Maps level (낮을수록 확대)
+    state.map.setCenter(new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng))
+    state.map.setLevel(16)
     
     // GPS 마커 업데이트
     addUserLocationMarker()
@@ -2268,12 +2294,10 @@ function moveToUserLocation() {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         }
-        console.log(`✅ GPS 위치: ${state.userLocation.lat}, ${state.userLocation.lng}`)
         
-        // GPS 위치로 지도 중심 이동
-        const moveLatLon = new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng)
-        state.map.setCenter(moveLatLon)
-        state.map.setLevel(4)
+        console.log(`✅ GPS 위치: ${state.userLocation.lat}, ${state.userLocation.lng}`)
+        state.map.setCenter(new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng))
+        state.map.setLevel(16)
         
         // GPS 마커 추가
         addUserLocationMarker()
@@ -2283,10 +2307,20 @@ function moveToUserLocation() {
       (error) => {
         console.error('GPS 오류:', error)
         let errorMsg = '위치를 가져올 수 없습니다'
-        if (error.code === 1) errorMsg = '위치 권한이 필요합니다'
-        else if (error.code === 2) errorMsg = '위치 정보를 사용할 수 없습니다'
-        else if (error.code === 3) errorMsg = '위치 요청 시간이 초과되었습니다'
-        showToast(errorMsg, 'warning')
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = '위치 권한이 거부되었습니다'
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = '위치 정보를 사용할 수 없습니다'
+            break
+          case error.TIMEOUT:
+            errorMsg = '위치 요청 시간이 초과되었습니다'
+            break
+        }
+        
+        showToast(errorMsg, 'error')
       },
       {
         enableHighAccuracy: true,
@@ -2296,6 +2330,21 @@ function moveToUserLocation() {
     )
   }
 }
+
+// ============================================
+// 초기화
+// ============================================
+window.addEventListener('DOMContentLoaded', () => {
+  if (loadSession()) {
+    if (state.currentUser.role === 'admin') {
+      renderAdminDashboard()
+    } else {
+      renderUserMap()
+    }
+  } else {
+    renderLogin()
+  }
+})
 
 // 전역 함수로 등록
 window.logout = logout
