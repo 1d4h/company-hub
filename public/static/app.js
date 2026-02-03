@@ -10,7 +10,9 @@ const state = {
   selectedCustomer: null,
   uploadPreviewData: null,
   userLocation: null,  // GPS 위치
-  userLocationMarker: null  // GPS 마커
+  userLocationMarker: null,  // GPS 마커
+  mapType: 'normal',  // 'normal' 또는 'satellite'
+  sortedCustomers: null  // 거리순 정렬된 고객 목록
 }
 
 // ============================================
@@ -781,14 +783,15 @@ function renderUserMap() {
             class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200 flex items-center space-x-2"
           >
             <i class="fas fa-location-arrow"></i>
-            <span class="font-medium">내 위치 보기</span>
+            <span class="font-medium">내 위치</span>
           </button>
           <button 
-            onclick="toggleSatelliteMap()" 
+            onclick="toggleMapType()" 
+            id="mapTypeToggleBtn"
             class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200 flex items-center space-x-2"
           >
-            <i class="fas fa-satellite"></i>
-            <span class="font-medium">위성 지도 보기</span>
+            <i class="fas fa-satellite" id="mapTypeIcon"></i>
+            <span class="font-medium" id="mapTypeText">위성 지도</span>
           </button>
         </div>
         
@@ -837,7 +840,7 @@ function renderUserMap() {
               </div>
             </div>
             
-            <!-- 고객 목록 콘텐츠 (접기 가능) -->
+            <!-- 고객 목록 콘텐츠 (항상 표시) -->
             <div id="customerListContent" class="overflow-y-auto" style="max-height: calc(100vh - 200px);">
               <div id="customerList"></div>
             </div>
@@ -887,7 +890,7 @@ function renderUserMap() {
         
         if (typeof Tmapv2 !== 'undefined') {
           console.log('✅ T Map API 로드됨, 지도 초기화 시작...')
-          initTMap()
+          initKakaoMap()
         } else {
           console.warn('⚠️ T Map API를 사용할 수 없습니다')
           showMapFallback()
@@ -1097,8 +1100,8 @@ function getMarkerBgColor(markerColor) {
 }
 
 // 네이버 지도 초기화
-function initTMap() {
-  console.log('🗺️ T Map 초기화 시작...')
+function initKakaoMap() {
+  console.log('🗺️ Kakao Maps 초기화 시작...')
   
   const mapDiv = document.getElementById('map')
   if (!mapDiv) {
@@ -1107,8 +1110,8 @@ function initTMap() {
   }
   
   // T Map API 로드 확인
-  if (typeof Tmapv2 === 'undefined') {
-    console.error('❌ T Map API가 로드되지 않았습니다')
+  if (typeof kakao === 'undefined' || !kakao.maps) {
+    console.error('❌ Kakao Maps API가 로드되지 않았습니다')
     showMapFallback()
     return
   }
@@ -1122,7 +1125,7 @@ function initTMap() {
   }
   
   try {
-    console.log('🗺️ T Map 지도 초기화 시작...')
+    console.log('🗺️ Kakao Maps 지도 초기화 시작...')
     
     // 서울 중심 좌표 (기본값)
     const defaultCenterLat = 37.5665
@@ -1177,7 +1180,7 @@ function initTMap() {
       scrollwheel: true
     })
     
-    console.log('✅ T Map 객체 생성 완료', state.map)
+    console.log('✅ Kakao Maps 객체 생성 완료', state.map)
     console.log('🗺️ 지도 중심:', center.toString(), '줌 레벨:', zoom)
     console.log('🗺️ 지도 객체 메서드:', Object.keys(state.map).filter(k => typeof state.map[k] === 'function').slice(0, 10))
     
@@ -1271,7 +1274,7 @@ function initTMap() {
       }
     })
     
-    console.log(`✅ T Map 초기화 완료: ${validCustomers.length}개의 마커 생성 시도, ${state.markers.length}개 성공`)
+    console.log(`✅ Kakao Maps 초기화 완료: ${validCustomers.length}개의 마커 생성 시도, ${state.markers.length}개 성공`)
     
     showToast('지도가 로드되었습니다', 'success')
     
@@ -1279,7 +1282,7 @@ function initTMap() {
     requestUserLocation()
     
   } catch (error) {
-    console.error('❌ T Map 초기화 오류:', error)
+    console.error('❌ Kakao Maps 초기화 오류:', error)
     showMapFallback()
     showToast('지도 로드 실패: T Map API를 확인해주세요', 'error')
   }

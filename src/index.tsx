@@ -576,10 +576,8 @@ app.get('/', (c) => {
         <title>고객관리 시스템</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-        <!-- T Map API (지도 표시용) -->
-        <script src="https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=vSWmSa8CcO4uvyc0EsAg46SWvxNVAKzL8KGbckPB"></script>
-        <!-- Kakao JavaScript API (길 안내용) -->
-        <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=c933c69ba4e0228895438c6a8c327e74&libraries=services"></script>
+        <!-- Kakao Maps API (메인 지도 + 길 안내용) -->
+        <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=c933c69ba4e0228895438c6a8c327e74&libraries=services"></script>
         <!-- SheetJS for Excel file parsing -->
         <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     </head>
