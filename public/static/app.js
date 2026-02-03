@@ -774,14 +774,21 @@ function renderUserMap() {
       <div class="flex-1 relative">
         <div id="map" class="w-full h-full"></div>
         
-        <!-- 내 위치 버튼 -->
-        <div class="absolute top-4 right-4 z-10">
+        <!-- 내 위치 / 위성 지도 버튼 -->
+        <div class="absolute top-4 right-4 z-10 flex flex-col space-y-2">
           <button 
             onclick="moveToUserLocation()" 
             class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200 flex items-center space-x-2"
           >
             <i class="fas fa-location-arrow"></i>
             <span class="font-medium">내 위치 보기</span>
+          </button>
+          <button 
+            onclick="toggleSatelliteMap()" 
+            class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200 flex items-center space-x-2"
+          >
+            <i class="fas fa-satellite"></i>
+            <span class="font-medium">위성 지도 보기</span>
           </button>
         </div>
         
@@ -814,6 +821,20 @@ function renderUserMap() {
               <button onclick="toggleCustomerPanel()" class="text-blue-600 hover:text-blue-800 transition p-2">
                 <i id="panelToggleIcon" class="fas fa-chevron-down text-xl"></i>
               </button>
+            </div>
+            
+            <!-- 고객명 검색 -->
+            <div class="mb-3">
+              <div class="relative">
+                <input 
+                  type="text" 
+                  id="customerSearchInput" 
+                  placeholder="고객명 검색..." 
+                  class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  oninput="filterCustomersByName()"
+                />
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+              </div>
             </div>
             
             <!-- 고객 목록 콘텐츠 (접기 가능) -->
@@ -1278,6 +1299,7 @@ function requestUserLocation() {
   }
   
   console.log('📍 GPS 위치 요청 중...')
+  showToast('GPS 위치를 가져오는 중...', 'info')
   
   navigator.geolocation.getCurrentPosition(
     (position) => {
@@ -1287,10 +1309,10 @@ function requestUserLocation() {
       }
       console.log(`✅ GPS 위치 확인: ${state.userLocation.lat}, ${state.userLocation.lng}`)
       
-      // GPS 위치로 지도 중심 이동 (고객이 없을 때만)
-      if (state.map && state.customers.length === 0) {
+      // GPS 위치로 지도 중심 이동
+      if (state.map) {
         state.map.setCenter(new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng))
-        state.map.setZoom(15)
+        state.map.setZoom(16)
         showToast('현재 위치로 이동했습니다', 'success')
       }
       
@@ -1301,7 +1323,12 @@ function requestUserLocation() {
       console.log('⚠️ GPS 위치 가져오기 실패:', error.message)
       console.log('오류 코드:', error.code, '| PERMISSION_DENIED=1, POSITION_UNAVAILABLE=2, TIMEOUT=3')
       
-      // 사용자에게 안내하지 않음 (조용히 실패)
+      let errorMsg = '위치 정보를 가져올 수 없습니다'
+      if (error.code === 1) errorMsg = '위치 권한이 필요합니다'
+      else if (error.code === 2) errorMsg = '위치 정보를 사용할 수 없습니다'
+      else if (error.code === 3) errorMsg = '위치 요청 시간이 초과되었습니다'
+      
+      showToast(errorMsg, 'warning')
     },
     {
       enableHighAccuracy: true,
@@ -1327,17 +1354,17 @@ function addUserLocationMarker() {
     
     console.log('📍 GPS 마커 생성 시작:', state.userLocation.lat, state.userLocation.lng)
     
-    // SVG 기반 GPS 마커 (파란색 점 + 외부 링)
+    // 핀포인트 스타일 GPS 마커 (빨간색 핀)
+    const markerSize = 48
     const markerSvg = `
-      <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-        <!-- 외부 펄스 링 -->
-        <circle cx="20" cy="20" r="18" fill="rgba(59, 130, 246, 0.2)" stroke="none">
-          <animate attributeName="r" from="15" to="20" dur="2s" repeatCount="indefinite" />
-          <animate attributeName="opacity" from="0.7" to="0.2" dur="2s" repeatCount="indefinite" />
-        </circle>
-        
-        <!-- 내부 파란색 점 -->
-        <circle cx="20" cy="20" r="8" fill="#3B82F6" stroke="white" stroke-width="3" />
+      <svg width="${markerSize}" height="${markerSize}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- 빨간색 핀 포인트 -->
+        <path d="M24 2C15.163 2 8 9.163 8 18C8 29.25 24 46 24 46C24 46 40 29.25 40 18C40 9.163 32.837 2 24 2Z" 
+              fill="#FF0000" 
+              stroke="white" 
+              stroke-width="2"/>
+        <!-- 내부 흰색 원 -->
+        <circle cx="24" cy="18" r="6" fill="white"/>
       </svg>
     `
     
@@ -1345,12 +1372,12 @@ function addUserLocationMarker() {
       position: new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng),
       map: state.map,
       icon: markerSvg,
-      iconSize: new Tmapv2.Size(40, 40),
+      iconSize: new Tmapv2.Size(markerSize, markerSize),
       title: '현재 위치'
     })
     
     state.userLocationMarker = marker
-    console.log('✅ GPS 마커 추가 완료')
+    console.log('✅ GPS 마커 추가 완료 (빨간색 핀)')
     
   } catch (error) {
     console.error('❌ GPS 마커 생성 실패:', error)
@@ -2099,6 +2126,92 @@ function toggleCustomerPanel() {
     content.style.display = 'none'
     panel.style.maxHeight = '80px'
     icon.className = 'fas fa-chevron-up text-xl'
+  }
+}
+
+// 고객명으로 검색 필터링
+function filterCustomersByName() {
+  const searchInput = document.getElementById('customerSearchInput')
+  if (!searchInput) return
+  
+  const searchText = searchInput.value.trim().toLowerCase()
+  
+  // 검색어가 없으면 전체 고객 표시
+  if (!searchText) {
+    renderCustomerList()
+    return
+  }
+  
+  // 현재 표시 중인 고객 목록에서 검색
+  const displayCustomers = state.sortedCustomers || state.customers
+  const filteredCustomers = displayCustomers.filter(customer => 
+    customer.customer_name && customer.customer_name.toLowerCase().includes(searchText)
+  )
+  
+  // 필터링된 고객 목록 렌더링
+  const listEl = document.getElementById('customerList')
+  if (!listEl) return
+  
+  if (filteredCustomers.length === 0) {
+    listEl.innerHTML = '<p class="text-gray-500 text-center py-4">검색 결과가 없습니다</p>'
+    return
+  }
+  
+  listEl.innerHTML = filteredCustomers.map(customer => {
+    // AS결과에 따라 상태 색상 결정
+    const markerColor = getMarkerColorByStatus(customer.as_result)
+    let statusColor = 'gray'
+    let statusIcon = 'fa-circle'
+    
+    if (markerColor === 'g') {
+      statusColor = 'green'
+      statusIcon = 'fa-check-circle'
+    } else if (markerColor === 'y') {
+      statusColor = 'yellow'
+      statusIcon = 'fa-clock'
+    } else if (markerColor === 'r') {
+      statusColor = 'red'
+      statusIcon = 'fa-exclamation-circle'
+    } else {
+      statusColor = 'blue'
+      statusIcon = 'fa-circle'
+    }
+    
+    return `
+    <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
+        <p class="font-medium text-gray-800 text-sm flex-1">${customer.customer_name}</p>
+        ${customer.distance ? `<span class="text-xs text-gray-500">${formatDistance(customer.distance)}</span>` : ''}
+      </div>
+    </div>
+    `
+  }).join('')
+}
+
+// 위성 지도 전환 (Kakao Maps 사용)
+function toggleSatelliteMap() {
+  if (!state.map) {
+    showToast('지도를 먼저 로드해주세요', 'error')
+    return
+  }
+  
+  // 현재 T Map 중심 좌표 가져오기
+  const center = state.map.getCenter()
+  const lat = center.lat()
+  const lng = center.lng()
+  
+  // Kakao Maps 위성 지도 URL로 이동
+  const kakaoSatelliteUrl = `https://map.kakao.com/?urlX=${lng * 10000000}&urlY=${lat * 10000000}&urlLevel=3&map_type=skyview`
+  
+  showToast('Kakao Maps 위성 지도로 이동합니다', 'info')
+  
+  // 모바일에서는 현재 탭에서 열기, 데스크톱에서는 새 탭
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+  if (isMobile) {
+    window.location.href = kakaoSatelliteUrl
+  } else {
+    window.open(kakaoSatelliteUrl, '_blank')
   }
 }
 
