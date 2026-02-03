@@ -1194,23 +1194,18 @@ function initTMap() {
     }
     
     // T Map 생성
-    const mapTypeId = state.mapType === 'satellite' 
-      ? (typeof Tmapv2.MapTypeId !== 'undefined' ? Tmapv2.MapTypeId.HYBRID : 'HYBRID')
-      : (typeof Tmapv2.MapTypeId !== 'undefined' ? Tmapv2.MapTypeId.ROADMAP : 'ROADMAP')
-    
     state.map = new Tmapv2.Map('map', {
       center: center,
       width: '100%',
       height: '100%',
       zoom: zoom,
       zoomControl: true,
-      scrollwheel: true,
-      mapTypeId: mapTypeId
+      scrollwheel: true
     })
     
     console.log('✅ T Map 객체 생성 완료', state.map)
     console.log('🗺️ 지도 중심:', center.toString(), '줌 레벨:', zoom)
-    console.log('🗺️ 지도 타입:', state.mapType, '→', mapTypeId)
+    console.log('🗺️ 지도 객체 메서드:', Object.keys(state.map).filter(k => typeof state.map[k] === 'function').slice(0, 10))
     
     // 고객 마커 추가
     console.log(`📍 마커 생성 시작 - 고객 수: ${validCustomers.length}`)
@@ -1319,6 +1314,7 @@ function initTMap() {
 // GPS 위치 마커 추가
 function addUserLocationMarker() {
   if (!state.map || !state.userLocation) {
+    console.log('⚠️ GPS 마커 생성 불가:', !state.map ? '지도 없음' : '위치 없음')
     return
   }
   
@@ -1329,61 +1325,26 @@ function addUserLocationMarker() {
       state.userLocationMarker = null
     }
     
-    console.log('📍 GPS 마커 생성:', state.userLocation.lat, state.userLocation.lng)
+    console.log('📍 GPS 마커 생성 시작:', state.userLocation.lat, state.userLocation.lng)
     
-    // GPS 위치 마커 생성 (파란색 점 + 외부 링)
-    const markerHtml = `
-      <div class='_t_gps_marker' style="position:relative; width: 40px; height: 40px; cursor: pointer;">
-        <!-- 외부 펄스 효과 -->
-        <div style="
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 40px;
-          height: 40px;
-          background: rgba(59, 130, 246, 0.2);
-          border-radius: 50%;
-          animation: pulse 2s infinite;
-        "></div>
+    // SVG 기반 GPS 마커 (파란색 점 + 외부 링)
+    const markerSvg = `
+      <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+        <!-- 외부 펄스 링 -->
+        <circle cx="20" cy="20" r="18" fill="rgba(59, 130, 246, 0.2)" stroke="none">
+          <animate attributeName="r" from="15" to="20" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" from="0.7" to="0.2" dur="2s" repeatCount="indefinite" />
+        </circle>
         
-        <!-- 내부 점 -->
-        <div style="
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 16px;
-          height: 16px;
-          background: #3B82F6;
-          border: 3px solid white;
-          border-radius: 50%;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        "></div>
-      </div>
-      
-      <style>
-        @keyframes pulse {
-          0% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.7;
-          }
-          50% {
-            transform: translate(-50%, -50%) scale(1.3);
-            opacity: 0.3;
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.7;
-          }
-        }
-      </style>
+        <!-- 내부 파란색 점 -->
+        <circle cx="20" cy="20" r="8" fill="#3B82F6" stroke="white" stroke-width="3" />
+      </svg>
     `
     
     const marker = new Tmapv2.Marker({
       position: new Tmapv2.LatLng(state.userLocation.lat, state.userLocation.lng),
       map: state.map,
-      icon: markerHtml,
+      icon: markerSvg,
       iconSize: new Tmapv2.Size(40, 40),
       title: '현재 위치'
     })
@@ -2155,11 +2116,28 @@ function toggleMapType() {
     if (state.mapType === 'normal') {
       state.mapType = 'satellite'
       
-      // T Map의 위성 지도 타입 시도
-      if (typeof Tmapv2.MapTypeId !== 'undefined') {
-        state.map.setMapTypeId(Tmapv2.MapTypeId.HYBRID || 'HYBRID')
-      } else {
-        state.map.setMapTypeId('HYBRID')
+      // T Map 위성 지도 설정
+      try {
+        // 방법 1: setMapType 시도
+        if (typeof state.map.setMapType === 'function') {
+          state.map.setMapType('SATELLITE')
+          console.log('✅ setMapType(SATELLITE) 성공')
+        }
+        // 방법 2: setMapTypeId 시도  
+        else if (typeof state.map.setMapTypeId === 'function') {
+          state.map.setMapTypeId('SATELLITE')
+          console.log('✅ setMapTypeId(SATELLITE) 성공')
+        }
+        // 방법 3: 지도 재생성 (폴백)
+        else {
+          console.log('⚠️ 위성 지도 API 없음 - T Map은 위성 지도를 지원하지 않을 수 있습니다')
+          showToast('T Map은 위성 지도를 지원하지 않습니다', 'info')
+          state.mapType = 'normal' // 원래대로 복구
+          return
+        }
+      } catch (apiError) {
+        console.error('❌ 위성 지도 API 호출 오류:', apiError)
+        throw apiError
       }
       
       document.getElementById('mapTypeIcon').className = 'fas fa-map text-xl'
@@ -2168,11 +2146,18 @@ function toggleMapType() {
     } else {
       state.mapType = 'normal'
       
-      // T Map의 일반 지도 타입 시도
-      if (typeof Tmapv2.MapTypeId !== 'undefined') {
-        state.map.setMapTypeId(Tmapv2.MapTypeId.ROADMAP || 'ROADMAP')
-      } else {
-        state.map.setMapTypeId('ROADMAP')
+      // T Map 일반 지도 설정
+      try {
+        if (typeof state.map.setMapType === 'function') {
+          state.map.setMapType('ROADMAP')
+          console.log('✅ setMapType(ROADMAP) 성공')
+        } else if (typeof state.map.setMapTypeId === 'function') {
+          state.map.setMapTypeId('ROADMAP')
+          console.log('✅ setMapTypeId(ROADMAP) 성공')
+        }
+      } catch (apiError) {
+        console.error('❌ 일반 지도 API 호출 오류:', apiError)
+        throw apiError
       }
       
       document.getElementById('mapTypeIcon').className = 'fas fa-satellite text-xl'
@@ -2181,6 +2166,12 @@ function toggleMapType() {
     }
   } catch (error) {
     console.error('❌ 지도 타입 전환 오류:', error)
+    console.error('오류 상세:', {
+      message: error.message,
+      stack: error.stack,
+      map: state.map,
+      mapMethods: state.map ? Object.keys(state.map).filter(k => typeof state.map[k] === 'function') : []
+    })
     showToast('지도 타입 전환에 실패했습니다', 'error')
   }
   

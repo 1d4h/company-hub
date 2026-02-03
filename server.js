@@ -7,76 +7,9 @@ const app = new Hono()
 
 // 메모리 기반 데이터 저장소
 // 필드: 순번, 횟수, 접수일자, 업체, 구분, 고객명, 전화번호, 설치연월, 열원, 주소, AS접수내용, 설치팀, 지역, 접수자, AS결과
-let customers = [
-  {
-    id: 1,
-    sequence: 1,
-    count: 1,
-    receipt_date: '2024-01-15',
-    company: '서울지사',
-    category: 'AS',
-    customer_name: '김철수',
-    phone: '010-1234-5678',
-    install_date: '2023-12',
-    heat_source: '가스',
-    address: '서울특별시 강남구 테헤란로 123',
-    as_content: '온수 온도 조절 불량',
-    install_team: '1팀',
-    region: '강남',
-    receptionist: '홍길동',
-    as_result: '수리 완료',
-    latitude: 37.5012,
-    longitude: 127.0396,
-    created_at: '2024-01-15 10:30:00',
-    updated_at: '2024-01-15 10:30:00'
-  },
-  {
-    id: 2,
-    sequence: 2,
-    count: 1,
-    receipt_date: '2024-01-16',
-    company: '서울지사',
-    category: 'AS',
-    customer_name: '이영희',
-    phone: '010-2345-6789',
-    install_date: '2023-11',
-    heat_source: '전기',
-    address: '서울특별시 서초구 서초대로 78길 22',
-    as_content: '난방 작동 불량',
-    install_team: '2팀',
-    region: '서초',
-    receptionist: '김영희',
-    as_result: '부품 교체 완료',
-    latitude: 37.4833,
-    longitude: 127.0322,
-    created_at: '2024-01-16 14:20:00',
-    updated_at: '2024-01-16 14:20:00'
-  },
-  {
-    id: 3,
-    sequence: 3,
-    count: 2,
-    receipt_date: '2024-01-17',
-    company: '서울지사',
-    category: 'AS',
-    customer_name: '박민수',
-    phone: '010-3456-7890',
-    install_date: '2023-10',
-    heat_source: '가스',
-    address: '서울특별시 송파구 올림픽로 300',
-    as_content: '보일러 소음 발생',
-    install_team: '1팀',
-    region: '송파',
-    receptionist: '홍길동',
-    as_result: '점검 완료',
-    latitude: 37.5125,
-    longitude: 127.1025,
-    created_at: '2024-01-17 09:15:00',
-    updated_at: '2024-01-17 09:15:00'
-  }
-]
+let customers = []
 
-let nextCustomerId = 4
+let nextCustomerId = 1
 
 // CORS 설정
 app.use('/api/*', cors())
