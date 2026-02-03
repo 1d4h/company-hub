@@ -1242,9 +1242,12 @@ function initKakaoMap() {
           ? customer.customer_name.substring(0, 4) 
           : customer.customer_name
         
+        // 각 마커에 고유 ID 생성
+        const uniqueMarkerId = `marker-${customer.id}-${Date.now()}-${index}`
+        
         // CustomOverlay로 깔끔하고 예쁜 원형 마커 생성
         const markerContent = `
-          <div class="custom-marker" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
+          <div id="${uniqueMarkerId}" class="custom-marker" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
             <!-- 메인 마커 원 -->
             <div style="
               position: relative;
@@ -1277,10 +1280,10 @@ function initKakaoMap() {
         
         // 클릭 이벤트: DOM이 렌더링된 후에 이벤트 리스너 추가
         setTimeout(() => {
-          const markerElement = document.querySelector(`.custom-marker[data-customer-id="${customer.id}"]`)
+          const markerElement = document.getElementById(uniqueMarkerId)
           if (markerElement) {
             markerElement.addEventListener('click', function() {
-              console.log('🖱️ 마커 클릭:', customer.customer_name)
+              console.log('🖱️ 마커 클릭:', customer.customer_name, '| ID:', customer.id)
               
               // 고객 상세 정보 표시
               showCustomerDetailOnMap(customer)
@@ -1288,8 +1291,11 @@ function initKakaoMap() {
               // 클릭한 위치 기준으로 거리순 고객 목록 표시
               showNearbyCustomers(customer.latitude, customer.longitude)
             })
+            console.log(`✅ 마커 ${index + 1} 클릭 이벤트 바인딩 완료: ${customer.customer_name}`)
+          } else {
+            console.error(`❌ 마커 ${index + 1} 요소를 찾을 수 없음: ${uniqueMarkerId}`)
           }
-        }, 100)
+        }, 150)
         
         state.markers.push(customOverlay)
         console.log(`✅ 마커 ${index + 1} 생성 완료: ${customer.customer_name} (${statusText})`)
@@ -1965,11 +1971,33 @@ async function confirmUpload() {
 }
 
 function showCustomerDetail(customerId) {
+  console.log('📋 showCustomerDetail 호출됨 | customerId:', customerId)
+  
   const customer = state.customers.find(c => c.id === customerId)
-  if (!customer) return
+  
+  if (!customer) {
+    console.error('❌ 고객을 찾을 수 없습니다 | ID:', customerId)
+    console.log('현재 state.customers:', state.customers)
+    showToast('고객 정보를 찾을 수 없습니다', 'error')
+    return
+  }
+  
+  console.log('✅ 고객 정보 찾음:', customer.customer_name)
   
   const panel = document.getElementById('customerDetailPanel')
   const content = document.getElementById('customerDetailContent')
+  
+  if (!panel) {
+    console.error('❌ customerDetailPanel 요소를 찾을 수 없습니다')
+    return
+  }
+  
+  if (!content) {
+    console.error('❌ customerDetailContent 요소를 찾을 수 없습니다')
+    return
+  }
+  
+  console.log('✅ 패널 요소 찾음, HTML 렌더링 시작...')
   
   content.innerHTML = `
     <div class="space-y-4">
@@ -2037,7 +2065,19 @@ function showCustomerDetail(customerId) {
     </div>
   `
   
+  console.log('✅ HTML 렌더링 완료, 패널 표시...')
   panel.classList.remove('hidden')
+  console.log('✅ 패널 hidden 클래스 제거 완료')
+  
+  // 지도가 있으면 고객 위치로 이동
+  if (state.map && customer.latitude && customer.longitude) {
+    state.map.setCenter(new kakao.maps.LatLng(customer.latitude, customer.longitude))
+    state.map.setLevel(4)  // Kakao Maps level (낮을수록 확대)
+    console.log('✅ 지도 중심 이동 완료:', customer.latitude, customer.longitude)
+  }
+  
+  console.log('✅ showCustomerDetail 완료')
+}
   
   // 지도에서 해당 고객 위치로 이동
   if (state.map && customer.latitude && customer.longitude) {
@@ -2048,7 +2088,18 @@ function showCustomerDetail(customerId) {
 
 // 지도에서 고객 상세정보 표시 (마커 클릭시)
 function showCustomerDetailOnMap(customer) {
+  console.log('📋 showCustomerDetailOnMap 호출됨:', customer.customer_name, '| ID:', customer.id)
+  
+  // 지도 중심을 마커 위치로 이동
+  if (state.map && customer.latitude && customer.longitude) {
+    state.map.setCenter(new kakao.maps.LatLng(customer.latitude, customer.longitude))
+    state.map.setLevel(4)  // 확대
+    console.log('🗺️ 지도 중심 이동 완료:', customer.latitude, customer.longitude)
+  }
+  
+  // 고객 상세 정보 표시
   showCustomerDetail(customer.id)
+  console.log('✅ 고객 상세 정보 패널 표시 완료')
 }
 
 function closeCustomerDetail() {
