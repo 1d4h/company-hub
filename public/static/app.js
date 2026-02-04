@@ -2140,7 +2140,7 @@ function showCustomerDetail(customerId) {
       <div>
         <div class="flex items-center justify-between gap-3 mb-2">
           <p class="text-sm text-gray-600">고객명</p>
-          <button onclick="openASResultModal(${customer.id})" class="px-3 py-1 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 active:bg-blue-700 transition">
+          <button onclick="openASResultModal('${customer.id}')" class="px-3 py-1 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 active:bg-blue-700 transition">
             <i class="fas fa-clipboard-check mr-1"></i>A/S 결과
           </button>
         </div>
@@ -2542,7 +2542,7 @@ function handleMarkerClick(customerId) {
 // ============================================
 
 // A/S 결과 모달 열기
-function openASResultModal(customerId) {
+async function openASResultModal(customerId) {
   console.log('📋 A/S 결과 모달 열기 | Customer ID:', customerId)
   
   const customer = state.customers.find(c => String(c.id) === String(customerId))
@@ -2559,7 +2559,7 @@ function openASResultModal(customerId) {
   // 기존 사진 초기화
   state.asPhotos = []
   
-  // 모달 표시
+  // 모달 요소 찾기
   const modal = document.getElementById('asResultModal')
   const customerNameEl = document.getElementById('asModalCustomerName')
   const photoPreview = document.getElementById('asPhotoPreview')
@@ -2569,14 +2569,66 @@ function openASResultModal(customerId) {
     customerNameEl.textContent = customer.customer_name
   }
   
-  if (photoPreview) {
-    photoPreview.innerHTML = ''
+  // 기존 A/S 결과 불러오기
+  try {
+    console.log('📥 기존 A/S 결과 불러오는 중...')
+    const response = await axios.get(`/api/customers/${customerId}/as-result`)
+    
+    if (response.data.success && response.data.asRecords && response.data.asRecords.length > 0) {
+      // 가장 최근 A/S 기록 가져오기
+      const latestRecord = response.data.asRecords[0]
+      
+      console.log('✅ 기존 A/S 결과 불러오기 성공:', latestRecord)
+      
+      // 텍스트 내용 설정
+      if (textArea && latestRecord.result_text) {
+        textArea.value = latestRecord.result_text
+      }
+      
+      // 사진 미리보기 설정
+      if (photoPreview && latestRecord.photos && latestRecord.photos.length > 0) {
+        photoPreview.innerHTML = latestRecord.photos.map((photo, index) => `
+          <div class="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
+            <img src="${photo.url}" alt="A/S 사진 ${index + 1}" class="w-full h-full object-cover">
+            <div class="absolute top-2 right-2 bg-white rounded-full px-2 py-1 text-xs font-semibold text-gray-700 shadow">
+              ${index + 1}
+            </div>
+          </div>
+        `).join('')
+        
+        // state.asPhotos에 기존 사진 URL 저장 (수정 시 유지하기 위해)
+        state.asPhotos = latestRecord.photos.map(photo => ({
+          url: photo.url,
+          isExisting: true,
+          storageId: photo.id
+        }))
+      }
+    } else {
+      console.log('ℹ️ 기존 A/S 결과 없음 - 새로 작성')
+      
+      // 초기화
+      if (photoPreview) {
+        photoPreview.innerHTML = ''
+      }
+      
+      if (textArea) {
+        textArea.value = ''
+      }
+    }
+  } catch (error) {
+    console.error('❌ A/S 결과 불러오기 오류:', error)
+    // 오류가 있어도 모달은 열리도록 함 (새로 작성 가능)
+    
+    if (photoPreview) {
+      photoPreview.innerHTML = ''
+    }
+    
+    if (textArea) {
+      textArea.value = ''
+    }
   }
   
-  if (textArea) {
-    textArea.value = customer.as_result_text || ''
-  }
-  
+  // 모달 표시
   if (modal) {
     modal.classList.remove('hidden')
   }
@@ -2692,7 +2744,7 @@ function removeASPhoto(photoId) {
 }
 
 // A/S 결과 임시 저장 (수정)
-function saveASResultDraft() {
+async function saveASResultDraft() {
   if (!state.currentASCustomerId) {
     showToast('고객 정보를 찾을 수 없습니다', 'error')
     return
@@ -2711,15 +2763,41 @@ function saveASResultDraft() {
   console.log('- 사진 개수:', state.asPhotos.length)
   console.log('- 텍스트:', resultText)
   
-  // 임시 저장 (메모리에만 저장)
-  const customer = state.customers.find(c => String(c.id) === String(state.currentASCustomerId))
-  if (customer) {
-    customer.as_result_text = resultText
-    customer.as_result_photos = [...state.asPhotos]
-    customer.as_result_status = 'draft'  // 임시 저장 상태
+  try {
+    // API 요청 (as_result 상태는 'draft'로 저장)
+    const response = await fetch('/api/customers/as-result', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        customerId: state.currentASCustomerId,
+        resultText: resultText,
+        photos: state.asPhotos,
+        status: 'draft'  // 임시 저장 상태
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error('A/S 결과 임시 저장 실패')
+    }
+    
+    const data = await response.json()
+    console.log('✅ A/S 결과 임시 저장 성공:', data)
+    
+    // 고객 정보 업데이트 (메모리)
+    const customer = state.customers.find(c => String(c.id) === String(state.currentASCustomerId))
+    if (customer) {
+      customer.as_result_text = resultText
+      customer.as_result_photos = [...state.asPhotos]
+      customer.as_result_status = 'draft'  // 임시 저장 상태
+    }
+    
+    showToast('임시 저장되었습니다 (수정 가능)', 'success')
+  } catch (error) {
+    console.error('❌ A/S 결과 임시 저장 실패:', error)
+    showToast('임시 저장에 실패했습니다', 'error')
   }
-  
-  showToast('임시 저장되었습니다', 'success')
 }
 
 // A/S 결과 완료
@@ -2734,6 +2812,11 @@ async function completeASResult() {
   
   if (!resultText && state.asPhotos.length === 0) {
     showToast('작업 내용 또는 사진을 입력해주세요', 'error')
+    return
+  }
+  
+  // 확인 대화상자
+  if (!confirm('A/S 작업을 완료하시겠습니까?\n완료하면 마커가 회색으로 변경됩니다.')) {
     return
   }
   
@@ -2795,21 +2878,83 @@ async function completeASResult() {
 function updateMarkerColor(customerId, status) {
   console.log('🎨 마커 색상 업데이트:', customerId, status)
   
-  // DOM에서 마커 찾기
-  const markerElement = document.getElementById(`marker-cid-${customerId}`)
-  
-  if (!markerElement) {
-    console.warn('⚠️ 마커를 찾을 수 없습니다:', customerId)
-    return
+  // 고객 정보 업데이트
+  const customer = state.customers.find(c => String(c.id) === String(customerId))
+  if (customer && status === 'completed') {
+    customer.as_result = 'completed'
   }
   
-  // 완료 상태면 연한 회색으로 변경
-  if (status === 'completed') {
-    const markerInner = markerElement.querySelector('.custom-marker')
-    if (markerInner) {
-      markerInner.style.backgroundColor = '#D1D5DB'  // 연한 회색 (gray-300)
-      console.log('✅ 마커 색상 변경 완료: 연한 회색')
-    }
+  // 지도가 있으면 마커 재생성 (색상 반영)
+  if (state.map) {
+    console.log('🗺️ 지도 마커 재생성 중...')
+    
+    // 기존 마커 모두 제거
+    state.markers.forEach(marker => marker.setMap(null))
+    state.markers = []
+    
+    // 유효한 고객만 필터링
+    const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
+    
+    // 마커 재생성
+    validCustomers.forEach((cust) => {
+      const markerColor = getMarkerColorByStatus(cust.as_result)
+      
+      let bgColor, iconColor, iconClass
+      if (markerColor === 'gray') {
+        bgColor = '#D1D5DB'  // 연한 회색 (A/S 완료)
+        iconColor = '#6B7280'
+        iconClass = 'fa-check-circle'
+      } else if (markerColor === 'g') {
+        bgColor = '#10B981'  // 초록색
+        iconColor = '#FFFFFF'
+        iconClass = 'fa-check-circle'
+      } else if (markerColor === 'y') {
+        bgColor = '#F59E0B'  // 노란색
+        iconColor = '#FFFFFF'
+        iconClass = 'fa-clock'
+      } else if (markerColor === 'r') {
+        bgColor = '#EF4444'  // 빨간색
+        iconColor = '#FFFFFF'
+        iconClass = 'fa-exclamation-circle'
+      } else {
+        bgColor = '#3B82F6'  // 파란색 (기본)
+        iconColor = '#FFFFFF'
+        iconClass = 'fa-map-marker-alt'
+      }
+      
+      const markerContent = `
+        <div onclick="handleMarkerClick('${cust.id}')" class="custom-marker" data-customer-id="${cust.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
+          <div style="
+            position: relative;
+            width: 40px;
+            height: 40px;
+            background: ${bgColor};
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            border: 3px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <i class="fas ${iconClass}" style="
+              color: ${iconColor};
+              font-size: 18px;
+            "></i>
+          </div>
+        </div>
+      `
+      
+      const customOverlay = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(cust.latitude, cust.longitude),
+        content: markerContent,
+        zIndex: 100
+      })
+      
+      customOverlay.setMap(state.map)
+      state.markers.push(customOverlay)
+    })
+    
+    console.log('✅ 마커 재생성 완료:', validCustomers.length, '개')
   }
 }
 
