@@ -12,7 +12,9 @@ const state = {
   userLocation: null,  // GPS 위치
   userLocationMarker: null,  // GPS 마커
   mapType: 'normal',  // 'normal' 또는 'satellite'
-  sortedCustomers: null  // 거리순 정렬된 고객 목록
+  sortedCustomers: null,  // 거리순 정렬된 고객 목록
+  asPhotos: [],  // A/S 사진 배열
+  currentASCustomerId: null  // 현재 A/S 작업 중인 고객 ID
 }
 
 // ============================================
@@ -773,6 +775,75 @@ function renderUserMap() {
           <div id="customerDetailContent" class="p-4"></div>
         </div>
         
+        <!-- A/S 결과 입력 모달 -->
+        <div id="asResultModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
+          <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h3 class="text-lg font-bold text-gray-800">A/S 결과 입력</h3>
+              <button onclick="closeASResultModal()" class="p-2 text-gray-500 hover:text-gray-700 active:bg-gray-100 rounded-full">
+                <i class="fas fa-times text-xl"></i>
+              </button>
+            </div>
+            
+            <div class="p-6 space-y-6">
+              <!-- 고객 정보 요약 -->
+              <div class="bg-blue-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 mb-1">고객명</p>
+                <p id="asModalCustomerName" class="text-lg font-semibold text-gray-800"></p>
+              </div>
+              
+              <!-- 사진 업로드 섹션 -->
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-3">
+                  <i class="fas fa-camera mr-2"></i>사진 촬영/업로드 (최대 10장)
+                </label>
+                
+                <!-- 사진 업로드 버튼 -->
+                <div class="flex gap-2 mb-4">
+                  <label class="flex-1 cursor-pointer">
+                    <input type="file" id="asPhotoInput" accept="image/*" capture="environment" multiple class="hidden" onchange="handleASPhotoUpload(event)">
+                    <div class="px-4 py-3 bg-blue-500 text-white text-center rounded-lg hover:bg-blue-600 transition">
+                      <i class="fas fa-camera mr-2"></i>사진 촬영
+                    </div>
+                  </label>
+                  <label class="flex-1 cursor-pointer">
+                    <input type="file" id="asGalleryInput" accept="image/*" multiple class="hidden" onchange="handleASPhotoUpload(event)">
+                    <div class="px-4 py-3 bg-green-500 text-white text-center rounded-lg hover:bg-green-600 transition">
+                      <i class="fas fa-images mr-2"></i>갤러리
+                    </div>
+                  </label>
+                </div>
+                
+                <!-- 사진 미리보기 그리드 -->
+                <div id="asPhotoPreview" class="grid grid-cols-3 gap-3"></div>
+              </div>
+              
+              <!-- 텍스트 입력 -->
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <i class="fas fa-edit mr-2"></i>작업 내용
+                </label>
+                <textarea 
+                  id="asResultText" 
+                  rows="6" 
+                  placeholder="A/S 작업 내용을 입력하세요..."
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                ></textarea>
+              </div>
+              
+              <!-- 버튼 -->
+              <div class="flex gap-3">
+                <button onclick="saveASResultDraft()" class="flex-1 px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 active:bg-gray-700 transition">
+                  <i class="fas fa-save mr-2"></i>수정
+                </button>
+                <button onclick="completeASResult()" class="flex-1 px-6 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 active:bg-green-700 transition">
+                  <i class="fas fa-check-circle mr-2"></i>완료
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <!-- 고객 목록 하단 패널 (모바일 최적화) -->
         <div id="customerSidePanel" class="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-20 transition-all duration-300" style="max-height: 60vh;">
           <div class="p-4">
@@ -1067,8 +1138,12 @@ function getMarkerColorByStatus(asResult) {
   
   const result = String(asResult).trim().toLowerCase()
   
+  // "completed" 상태 (A/S 완료) - 연한 회색
+  if (result === 'completed') {
+    return 'gray' // 완료된 A/S
+  }
   // "완료" 키워드 포함 시 초록색
-  if (result.includes('완료') || result.includes('수리') || result.includes('교체')) {
+  else if (result.includes('완료') || result.includes('수리') || result.includes('교체')) {
     return 'g' // green - 완료된 AS
   }
   // "점검" 또는 "대기" 키워드 포함 시 노란색
@@ -1233,7 +1308,12 @@ function initKakaoMap() {
         const markerColor = getMarkerColorByStatus(customer.as_result)
         
         let bgColor, iconColor, iconClass, statusText
-        if (markerColor === 'g') {
+        if (markerColor === 'gray') {
+          bgColor = '#D1D5DB'  // 연한 회색 (A/S 완료)
+          iconColor = '#6B7280'
+          iconClass = 'fa-check-circle'
+          statusText = 'A/S 완료'
+        } else if (markerColor === 'g') {
           bgColor = '#10B981'  // 초록색 (완료)
           iconColor = '#FFFFFF'
           iconClass = 'fa-check-circle'
@@ -2002,7 +2082,12 @@ function showCustomerDetail(customerId) {
   content.innerHTML = `
     <div class="space-y-4">
       <div>
-        <p class="text-sm text-gray-600">고객명</p>
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <p class="text-sm text-gray-600">고객명</p>
+          <button onclick="openASResultModal(${customer.id})" class="px-3 py-1 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 active:bg-blue-700 transition">
+            <i class="fas fa-clipboard-check mr-1"></i>A/S 결과
+          </button>
+        </div>
         <p class="text-lg font-semibold text-gray-800">${customer.customer_name}</p>
       </div>
       
@@ -2396,7 +2481,292 @@ function handleMarkerClick(customerId) {
 }
 
 // 전역 함수로 등록
+// ============================================
+// A/S 결과 입력 기능
+// ============================================
+
+// A/S 결과 모달 열기
+function openASResultModal(customerId) {
+  console.log('📋 A/S 결과 모달 열기 | Customer ID:', customerId)
+  
+  const customer = state.customers.find(c => String(c.id) === String(customerId))
+  
+  if (!customer) {
+    console.error('❌ 고객을 찾을 수 없습니다:', customerId)
+    showToast('고객 정보를 찾을 수 없습니다', 'error')
+    return
+  }
+  
+  // 현재 작업 중인 고객 ID 저장
+  state.currentASCustomerId = customerId
+  
+  // 기존 사진 초기화
+  state.asPhotos = []
+  
+  // 모달 표시
+  const modal = document.getElementById('asResultModal')
+  const customerNameEl = document.getElementById('asModalCustomerName')
+  const photoPreview = document.getElementById('asPhotoPreview')
+  const textArea = document.getElementById('asResultText')
+  
+  if (customerNameEl) {
+    customerNameEl.textContent = customer.customer_name
+  }
+  
+  if (photoPreview) {
+    photoPreview.innerHTML = ''
+  }
+  
+  if (textArea) {
+    textArea.value = customer.as_result_text || ''
+  }
+  
+  if (modal) {
+    modal.classList.remove('hidden')
+  }
+  
+  console.log('✅ A/S 결과 모달 표시 완료')
+}
+
+// A/S 결과 모달 닫기
+function closeASResultModal() {
+  const modal = document.getElementById('asResultModal')
+  if (modal) {
+    modal.classList.add('hidden')
+  }
+  
+  // 상태 초기화
+  state.currentASCustomerId = null
+  state.asPhotos = []
+}
+
+// A/S 사진 업로드 처리
+function handleASPhotoUpload(event) {
+  const files = event.target.files
+  
+  if (!files || files.length === 0) {
+    return
+  }
+  
+  // 현재 사진 개수 확인
+  const currentCount = state.asPhotos.length
+  const remainingSlots = 10 - currentCount
+  
+  if (files.length > remainingSlots) {
+    showToast(`사진은 최대 10장까지 업로드 가능합니다 (현재: ${currentCount}장)`, 'error')
+    return
+  }
+  
+  console.log(`📷 사진 ${files.length}개 업로드 시작...`)
+  
+  // 파일들을 읽어서 Base64로 변환
+  Array.from(files).forEach((file, index) => {
+    if (!file.type.startsWith('image/')) {
+      console.warn('⚠️ 이미지 파일이 아닙니다:', file.name)
+      return
+    }
+    
+    const reader = new FileReader()
+    
+    reader.onload = (e) => {
+      const photoData = {
+        id: Date.now() + index,
+        dataUrl: e.target.result,
+        filename: file.name,
+        size: file.size,
+        type: file.type
+      }
+      
+      state.asPhotos.push(photoData)
+      
+      console.log(`✅ 사진 추가됨: ${file.name} (${index + 1}/${files.length})`)
+      
+      // 미리보기 업데이트
+      updateASPhotoPreview()
+      
+      if (state.asPhotos.length === currentCount + files.length) {
+        showToast(`사진 ${files.length}개가 추가되었습니다`, 'success')
+      }
+    }
+    
+    reader.onerror = () => {
+      console.error('❌ 파일 읽기 실패:', file.name)
+      showToast(`파일 읽기 실패: ${file.name}`, 'error')
+    }
+    
+    reader.readAsDataURL(file)
+  })
+  
+  // input 초기화
+  event.target.value = ''
+}
+
+// A/S 사진 미리보기 업데이트
+function updateASPhotoPreview() {
+  const photoPreview = document.getElementById('asPhotoPreview')
+  
+  if (!photoPreview) {
+    return
+  }
+  
+  photoPreview.innerHTML = state.asPhotos.map((photo, index) => `
+    <div class="relative aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
+      <img src="${photo.dataUrl}" alt="사진 ${index + 1}" class="w-full h-full object-cover">
+      <button onclick="removeASPhoto(${photo.id})" class="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full hover:bg-red-600 transition flex items-center justify-center">
+        <i class="fas fa-times text-xs"></i>
+      </button>
+      <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center py-1">
+        ${index + 1}/10
+      </div>
+    </div>
+  `).join('')
+  
+  console.log(`📷 미리보기 업데이트: ${state.asPhotos.length}장`)
+}
+
+// A/S 사진 제거
+function removeASPhoto(photoId) {
+  const index = state.asPhotos.findIndex(p => p.id === photoId)
+  
+  if (index !== -1) {
+    state.asPhotos.splice(index, 1)
+    updateASPhotoPreview()
+    showToast('사진이 삭제되었습니다', 'success')
+  }
+}
+
+// A/S 결과 임시 저장 (수정)
+function saveASResultDraft() {
+  if (!state.currentASCustomerId) {
+    showToast('고객 정보를 찾을 수 없습니다', 'error')
+    return
+  }
+  
+  const textArea = document.getElementById('asResultText')
+  const resultText = textArea ? textArea.value.trim() : ''
+  
+  if (!resultText && state.asPhotos.length === 0) {
+    showToast('작업 내용 또는 사진을 입력해주세요', 'error')
+    return
+  }
+  
+  console.log('💾 A/S 결과 임시 저장...')
+  console.log('- 고객 ID:', state.currentASCustomerId)
+  console.log('- 사진 개수:', state.asPhotos.length)
+  console.log('- 텍스트:', resultText)
+  
+  // 임시 저장 (메모리에만 저장)
+  const customer = state.customers.find(c => String(c.id) === String(state.currentASCustomerId))
+  if (customer) {
+    customer.as_result_text = resultText
+    customer.as_result_photos = [...state.asPhotos]
+    customer.as_result_status = 'draft'  // 임시 저장 상태
+  }
+  
+  showToast('임시 저장되었습니다', 'success')
+}
+
+// A/S 결과 완료
+async function completeASResult() {
+  if (!state.currentASCustomerId) {
+    showToast('고객 정보를 찾을 수 없습니다', 'error')
+    return
+  }
+  
+  const textArea = document.getElementById('asResultText')
+  const resultText = textArea ? textArea.value.trim() : ''
+  
+  if (!resultText && state.asPhotos.length === 0) {
+    showToast('작업 내용 또는 사진을 입력해주세요', 'error')
+    return
+  }
+  
+  console.log('✅ A/S 결과 완료 처리...')
+  console.log('- 고객 ID:', state.currentASCustomerId)
+  console.log('- 사진 개수:', state.asPhotos.length)
+  console.log('- 텍스트:', resultText)
+  
+  try {
+    // API 요청
+    const response = await fetch('/api/customers/as-result', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        customerId: state.currentASCustomerId,
+        resultText: resultText,
+        photos: state.asPhotos,
+        completedAt: new Date().toISOString()
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error('A/S 결과 저장 실패')
+    }
+    
+    const data = await response.json()
+    console.log('✅ A/S 결과 저장 성공:', data)
+    
+    // 고객 정보 업데이트
+    const customer = state.customers.find(c => String(c.id) === String(state.currentASCustomerId))
+    if (customer) {
+      customer.as_result_text = resultText
+      customer.as_result_photos = [...state.asPhotos]
+      customer.as_result = 'completed'  // 완료 상태
+      customer.as_result_status = 'completed'
+      customer.as_completed_at = new Date().toISOString()
+    }
+    
+    // 마커 색상 업데이트 (연한 회색)
+    updateMarkerColor(state.currentASCustomerId, 'completed')
+    
+    // 모달 닫기
+    closeASResultModal()
+    
+    // 고객 상세 정보 패널도 닫기
+    closeCustomerDetail()
+    
+    showToast('A/S 작업이 완료되었습니다', 'success')
+    
+  } catch (error) {
+    console.error('❌ A/S 결과 저장 실패:', error)
+    showToast('A/S 결과 저장에 실패했습니다', 'error')
+  }
+}
+
+// 마커 색상 업데이트
+function updateMarkerColor(customerId, status) {
+  console.log('🎨 마커 색상 업데이트:', customerId, status)
+  
+  // DOM에서 마커 찾기
+  const markerElement = document.getElementById(`marker-cid-${customerId}`)
+  
+  if (!markerElement) {
+    console.warn('⚠️ 마커를 찾을 수 없습니다:', customerId)
+    return
+  }
+  
+  // 완료 상태면 연한 회색으로 변경
+  if (status === 'completed') {
+    const markerInner = markerElement.querySelector('.custom-marker')
+    if (markerInner) {
+      markerInner.style.backgroundColor = '#D1D5DB'  // 연한 회색 (gray-300)
+      console.log('✅ 마커 색상 변경 완료: 연한 회색')
+    }
+  }
+}
+
+// ============================================
+// 전역 함수 등록
+// ============================================
 window.handleMarkerClick = handleMarkerClick
+window.openASResultModal = openASResultModal
+window.closeASResultModal = closeASResultModal
+window.handleASPhotoUpload = handleASPhotoUpload
+window.removeASPhoto = removeASPhoto
+window.saveASResultDraft = saveASResultDraft
+window.completeASResult = completeASResult
 window.logout = logout
 window.switchToUserView = switchToUserView
 window.toggleSelectAll = toggleSelectAll

@@ -336,6 +336,72 @@ app.post('/api/geocode', async (c) => {
 })
 
 // ============================================
+// A/S 결과 API
+// ============================================
+app.post('/api/customers/as-result', async (c) => {
+  try {
+    const { customerId, resultText, photos, completedAt } = await c.req.json()
+    
+    console.log('📋 A/S 결과 저장 요청:', {
+      customerId,
+      resultText: resultText?.substring(0, 50) + '...',
+      photoCount: photos?.length || 0,
+      completedAt
+    })
+    
+    // 고객 찾기
+    const customer = customers.find(c => String(c.id) === String(customerId))
+    
+    if (!customer) {
+      return c.json({ success: false, message: '고객을 찾을 수 없습니다.' }, 404)
+    }
+    
+    // A/S 결과 업데이트
+    customer.as_result = 'completed'
+    customer.as_result_text = resultText
+    customer.as_result_photos = photos || []
+    customer.as_completed_at = completedAt
+    customer.updated_at = new Date().toISOString()
+    
+    console.log('✅ A/S 결과 저장 완료:', customer.customer_name)
+    
+    return c.json({
+      success: true,
+      customer: customer
+    })
+  } catch (error) {
+    console.error('❌ A/S 결과 저장 오류:', error)
+    return c.json({ success: false, message: 'A/S 결과 저장 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// A/S 결과 조회
+app.get('/api/customers/:id/as-result', async (c) => {
+  try {
+    const customerId = c.req.param('id')
+    
+    const customer = customers.find(c => String(c.id) === String(customerId))
+    
+    if (!customer) {
+      return c.json({ success: false, message: '고객을 찾을 수 없습니다.' }, 404)
+    }
+    
+    return c.json({
+      success: true,
+      asResult: {
+        status: customer.as_result || 'pending',
+        text: customer.as_result_text || '',
+        photos: customer.as_result_photos || [],
+        completedAt: customer.as_completed_at || null
+      }
+    })
+  } catch (error) {
+    console.error('❌ A/S 결과 조회 오류:', error)
+    return c.json({ success: false, message: 'A/S 결과 조회 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// ============================================
 // 메인 페이지
 // ============================================
 app.get('/', (c) => {
