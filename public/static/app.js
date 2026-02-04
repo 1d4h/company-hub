@@ -1638,9 +1638,18 @@ async function deleteSelectedCustomers() {
 }
 
 function openUploadModal() {
-  document.getElementById('uploadModal').classList.remove('hidden')
-  document.getElementById('uploadStep1').classList.remove('hidden')
-  document.getElementById('uploadStep2').classList.add('hidden')
+  const modal = document.getElementById('uploadModal')
+  const step1 = document.getElementById('uploadStep1')
+  
+  if (modal) {
+    modal.classList.remove('hidden')
+  }
+  
+  if (step1) {
+    step1.classList.remove('hidden')
+  }
+  
+  // uploadStep2는 더 이상 사용하지 않으므로 제거
 }
 
 function closeUploadModal() {

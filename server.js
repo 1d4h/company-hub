@@ -177,15 +177,37 @@ app.post('/api/customers/batch-upload', async (c) => {
     
     console.log(`📤 고객 일괄 업로드 시작: ${customers.length}명`)
     
-    // userId가 있으면 각 고객에 created_by 추가
-    const customersWithUser = customers.map(customer => ({
-      ...customer,
-      created_by: userId || null
-    }))
+    // 허용되는 컬럼 목록 (Supabase customers 테이블 스키마)
+    const allowedColumns = [
+      'sequence', 'count', 'receipt_date', 'company', 'category',
+      'customer_name', 'phone', 'install_date', 'heat_source',
+      'address', 'address_detail', 'as_content', 'install_team',
+      'region', 'receptionist', 'as_result', 'latitude', 'longitude',
+      'created_by'
+    ]
+    
+    // 데이터 정제: 허용된 컬럼만 추출하고 잘못된 키 제거
+    const cleanCustomers = customers.map(customer => {
+      const cleaned = {
+        created_by: userId || null
+      }
+      
+      // 허용된 컬럼만 복사
+      allowedColumns.forEach(col => {
+        if (customer[col] !== undefined && customer[col] !== null && customer[col] !== '') {
+          cleaned[col] = customer[col]
+        }
+      })
+      
+      return cleaned
+    })
+    
+    console.log('🧹 데이터 정제 완료:', cleanCustomers.length, '명')
+    console.log('📝 첫 번째 고객 샘플:', JSON.stringify(cleanCustomers[0], null, 2))
     
     const { data, error } = await supabase
       .from('customers')
-      .insert(customersWithUser)
+      .insert(cleanCustomers)
       .select()
     
     if (error) {
