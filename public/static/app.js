@@ -765,17 +765,15 @@ function renderUserMap() {
         <div class="absolute top-4 right-4 z-10 flex flex-col space-y-2">
           <button 
             onclick="moveToUserLocation()" 
-            class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200 flex items-center space-x-2"
+            class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200"
           >
-            <i class="fas fa-location-arrow"></i>
             <span class="font-medium">내 위치</span>
           </button>
           <button 
             onclick="toggleMapType()" 
             id="mapTypeToggleBtn"
-            class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200 flex items-center space-x-2"
+            class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200"
           >
-            <i class="fas fa-satellite" id="mapTypeIcon"></i>
             <span class="font-medium" id="mapTypeText">위성 지도</span>
           </button>
         </div>
@@ -1152,7 +1150,43 @@ function initKakaoMap() {
     
     let centerLat, centerLng, level
     
-    // 지도 중심 결정: 1) 가장 밀집된 고객 지역 2) 서울 중심
+    // 지도 중심 결정 우선순위: 1) GPS 위치 (사용자 현재 위치) 2) 가장 밀집된 고객 지역 3) 서울 중심
+    
+    // 1순위: GPS 위치 확인 및 사용
+    if (navigator.geolocation) {
+      console.log('📍 GPS 위치 확인 중...')
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          // GPS 위치 저장
+          state.userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          }
+          console.log(`✅ GPS 위치 확인: ${state.userLocation.lat}, ${state.userLocation.lng}`)
+          
+          // 지도 중심을 GPS 위치로 이동
+          if (state.map) {
+            state.map.setCenter(new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng))
+            state.map.setLevel(4)  // GPS 위치는 확대
+            showToast('GPS 위치로 이동했습니다', 'success')
+            
+            // GPS 마커 추가
+            addUserLocationMarker()
+          }
+        },
+        (error) => {
+          console.log('⚠️ GPS 위치 가져오기 실패:', error.message)
+          console.log('오류 코드:', error.code, '| PERMISSION_DENIED=1, POSITION_UNAVAILABLE=2, TIMEOUT=3')
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      )
+    }
+    
+    // 2순위: 가장 밀집된 고객 지역
     if (validCustomers.length > 0) {
       // 가장 밀집된 지역 찾기 (각 고객 주변 반경 5km 내 고객 수 계산)
       let maxDensityCustomer = validCustomers[0]
@@ -1181,7 +1215,7 @@ function initKakaoMap() {
       centerLng = maxDensityCustomer.longitude
       level = 8  // Kakao Maps level (낮을수록 확대)
     } else {
-      // 기본 서울 중심
+      // 3순위: 서울 중심 (기본값)
       centerLat = defaultCenterLat
       centerLng = defaultCenterLng
       level = 9
