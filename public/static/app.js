@@ -700,12 +700,11 @@ function renderAdminDashboard() {
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">주소</th>
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">위치</th>
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">등록일</th>
-                  <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">작업</th>
                 </tr>
               </thead>
               <tbody id="customerTableBody" class="divide-y divide-gray-200">
                 <tr>
-                  <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                  <td colspan="6" class="px-4 py-8 text-center text-gray-500">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
                     <p>고객 데이터를 불러오는 중...</p>
                   </td>
@@ -972,7 +971,7 @@ function renderUserMap() {
         }
         
         return `
-        <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
+        <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail('${customer.id}')">
           <div class="flex items-center justify-between gap-2">
             <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
             <p class="font-medium text-gray-800 text-sm flex-1">${customer.customer_name}</p>
@@ -1141,7 +1140,7 @@ function renderCustomerList() {
     
     // 간소화된 고객명만 표시
     return `
-    <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
+    <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail('${customer.id}')">
       <div class="flex items-center justify-between gap-2">
         <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
         <p class="font-medium text-gray-800 text-sm flex-1">${customer.customer_name}</p>
@@ -1398,7 +1397,7 @@ function initKakaoMap() {
         // CustomOverlay로 깔끔하고 예쁜 원형 마커 생성
         // onclick을 인라인으로 직접 추가 (CustomOverlay는 이 방식만 작동)
         const markerContent = `
-          <div onclick="handleMarkerClick(${customer.id})" class="custom-marker" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
+          <div onclick="handleMarkerClick('${customer.id}')" class="custom-marker" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
             <!-- 메인 마커 원 -->
             <div style="
               position: relative;
@@ -1591,7 +1590,7 @@ function renderCustomerTable() {
   if (state.customers.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
           <i class="fas fa-inbox text-4xl mb-2"></i>
           <p>등록된 고객이 없습니다</p>
         </td>
@@ -1614,11 +1613,6 @@ function renderCustomerTable() {
           : '<span class="text-gray-400"><i class="fas fa-times-circle mr-1"></i>미등록</span>'}
       </td>
       <td class="px-4 py-3 text-sm text-gray-600">${new Date(customer.created_at).toLocaleDateString('ko-KR')}</td>
-      <td class="px-4 py-3 text-center">
-        <button onclick="deleteCustomer(${customer.id})" class="text-red-600 hover:text-red-800">
-          <i class="fas fa-trash"></i>
-        </button>
-      </td>
     </tr>
   `).join('')
 }
@@ -2410,7 +2404,7 @@ function filterCustomersByName() {
     }
     
     return `
-    <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail(${customer.id})">
+    <div class="p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer transition mb-1 border border-gray-200" onclick="showCustomerDetail('${customer.id}')">
       <div class="flex items-center justify-between gap-2">
         <span class="text-${statusColor}-500"><i class="fas ${statusIcon} text-xs"></i></span>
         <p class="font-medium text-gray-800 text-sm flex-1">${customer.customer_name}</p>
