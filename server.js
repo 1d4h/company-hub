@@ -160,25 +160,57 @@ app.post('/api/customers', async (c) => {
 // 고객 일괄 업로드
 app.post('/api/customers/batch-upload', async (c) => {
   try {
-    const { customers } = await c.req.json()
+    const requestBody = await c.req.json()
+    console.log('📥 업로드 요청 받음:', Object.keys(requestBody))
+    
+    // 프론트엔드에서 'data' 또는 'customers'로 전송 가능
+    const customers = requestBody.data || requestBody.customers
+    const userId = requestBody.userId
+    
+    if (!customers || !Array.isArray(customers)) {
+      console.error('❌ 잘못된 데이터 형식:', typeof customers)
+      return c.json({ 
+        success: false, 
+        message: '올바른 형식의 고객 데이터가 필요합니다.' 
+      }, 400)
+    }
     
     console.log(`📤 고객 일괄 업로드 시작: ${customers.length}명`)
     
+    // userId가 있으면 각 고객에 created_by 추가
+    const customersWithUser = customers.map(customer => ({
+      ...customer,
+      created_by: userId || null
+    }))
+    
     const { data, error } = await supabase
       .from('customers')
-      .insert(customers)
+      .insert(customersWithUser)
       .select()
     
     if (error) {
       console.error('❌ 고객 일괄 업로드 오류:', error)
-      return c.json({ success: false, message: '고객 업로드 중 오류가 발생했습니다.' }, 500)
+      return c.json({ 
+        success: false, 
+        message: `고객 업로드 중 오류가 발생했습니다: ${error.message}` 
+      }, 500)
     }
     
     console.log(`✅ 고객 일괄 업로드 성공: ${data.length}명`)
-    return c.json({ success: true, count: data.length })
+    return c.json({ 
+      success: true, 
+      count: data.length,
+      summary: {
+        success: data.length,
+        failed: 0
+      }
+    })
   } catch (error) {
     console.error('❌ 고객 일괄 업로드 오류:', error)
-    return c.json({ success: false, message: '고객 업로드 중 오류가 발생했습니다.' }, 500)
+    return c.json({ 
+      success: false, 
+      message: `고객 업로드 중 오류가 발생했습니다: ${error.message}` 
+    }, 500)
   }
 })
 
