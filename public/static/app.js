@@ -761,22 +761,6 @@ function renderUserMap() {
       <div class="flex-1 relative">
         <div id="map" class="w-full h-full"></div>
         
-        <!-- 내 위치 / 위성 지도 버튼 -->
-        <div class="absolute top-4 right-4 z-10 flex flex-col space-y-2">
-          <button 
-            onclick="moveToUserLocation()" 
-            class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200"
-          >
-            <span class="font-medium">내 위치</span>
-          </button>
-          <button 
-            onclick="toggleMapType()" 
-            id="mapTypeToggleBtn"
-            class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 py-3 rounded-lg shadow-lg transition-all duration-200"
-          >
-            <span class="font-medium" id="mapTypeText">위성 지도</span>
-          </button>
-        </div>
         
         <!-- 고객 상세 정보 패널 (모바일 최적화: 전체 화면 모달) -->
         <div id="customerDetailPanel" class="hidden fixed inset-0 bg-white z-30 overflow-y-auto md:absolute md:top-4 md:right-4 md:left-auto md:bottom-auto md:rounded-xl md:shadow-xl md:w-80 md:max-h-[calc(100vh-120px)]">
@@ -877,16 +861,16 @@ function renderUserMap() {
       listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">등록된 고객이 없습니다</p>'
     }
     
-    // 고객 목록 패널 기본값 펼침 (변경됨)
+    // 고객 목록 패널 기본값: 접기
     setTimeout(() => {
       const content = document.getElementById('customerListContent')
       const panel = document.getElementById('customerSidePanel')
       const icon = document.getElementById('panelToggleIcon')
       
       if (content && panel && icon) {
-        content.style.display = 'block'  // 펼침 상태
-        panel.style.maxHeight = '60vh'
-        icon.className = 'fas fa-chevron-down text-xl'  // 아래 화살표
+        content.style.display = 'none'  // 접기 상태
+        panel.style.maxHeight = '80px'
+        icon.className = 'fas fa-chevron-up text-xl'  // 위 화살표
       }
     }, 100)
     
@@ -987,15 +971,15 @@ function showNearbyCustomers(centerLat, centerLng) {
     totalCountEl.textContent = state.customers.length
   }
   
-  // 고객 목록 패널 펼치기
+  // 고객 목록 패널 초기 상태: 접기
   const content = document.getElementById('customerListContent')
   const panel = document.getElementById('customerSidePanel')
   const icon = document.getElementById('panelToggleIcon')
   
   if (content && panel && icon) {
-    content.style.display = 'block'
-    panel.style.width = '20rem'
-    icon.className = 'fas fa-chevron-left text-xl'
+    content.style.display = 'none'
+    panel.style.maxHeight = '80px'
+    icon.className = 'fas fa-chevron-up text-xl'
   }
 }
 
@@ -1276,8 +1260,8 @@ function initKakaoMap() {
           ? customer.customer_name.substring(0, 4) 
           : customer.customer_name
         
-        // 각 마커에 고유 ID 생성
-        const uniqueMarkerId = `marker-${customer.id}-${Date.now()}-${index}`
+        // 각 마커에 고유 ID 생성 (index와 random 사용)
+        const uniqueMarkerId = `marker-${customer.id}-${index}-${Math.random().toString(36).substr(2, 9)}`
         
         // CustomOverlay로 깔끔하고 예쁜 원형 마커 생성
         const markerContent = `
