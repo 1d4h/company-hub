@@ -143,17 +143,40 @@ async function batchUploadCustomers(data) {
   }
 }
 
+// Kakao Maps Geocoder를 사용한 주소 → 좌표 변환
 async function geocodeAddress(address) {
-  try {
-    const response = await axios.post('/api/geocode', { address })
-    if (response.data.success) {
-      return response.data.result
+  return new Promise((resolve) => {
+    if (!address || address.trim() === '') {
+      resolve({ latitude: 37.5665, longitude: 126.9780 })
+      return
     }
-    return null
-  } catch (error) {
-    console.error('지오코딩 오류:', error)
-    return null
-  }
+    
+    // Kakao Maps API 사용 가능 여부 확인
+    if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) {
+      console.warn('⚠️ Kakao Maps API 사용 불가, 기본 좌표 사용:', address)
+      resolve({ latitude: 37.5665, longitude: 126.9780 })
+      return
+    }
+    
+    // Kakao Maps Geocoder 생성
+    const geocoder = new kakao.maps.services.Geocoder()
+    
+    // 주소로 좌표 검색
+    geocoder.addressSearch(address, (result, status) => {
+      if (status === kakao.maps.services.Status.OK && result && result.length > 0) {
+        const coords = {
+          latitude: parseFloat(result[0].y),
+          longitude: parseFloat(result[0].x),
+          address: result[0].address_name || address
+        }
+        console.log(`✅ 지오코딩 성공: ${address} → (${coords.latitude}, ${coords.longitude})`)
+        resolve(coords)
+      } else {
+        console.warn(`⚠️ 지오코딩 실패: ${address}, 기본 좌표 사용`)
+        resolve({ latitude: 37.5665, longitude: 126.9780, address })
+      }
+    })
+  })
 }
 
 // ============================================
@@ -1140,12 +1163,12 @@ function showMapFallback() {
         <div class="mb-6">
           <i class="fas fa-map-marked-alt text-6xl text-blue-400 mb-4"></i>
         </div>
-        <h2 class="text-2xl font-bold text-gray-800 mb-3">T Map 로딩 중</h2>
+        <h2 class="text-2xl font-bold text-gray-800 mb-3">Kakao Maps 로딩 중</h2>
         <p class="text-gray-600 mb-4">
-          T Map API를 불러오는 중입니다. 잠시만 기다려주세요.
+          Kakao Maps API를 불러오는 중입니다. 잠시만 기다려주세요.
         </p>
         <div class="bg-white rounded-lg p-4 mb-4 text-left shadow-sm">
-          <p class="text-sm font-semibold text-gray-700 mb-2">T Map API 상태:</p>
+          <p class="text-sm font-semibold text-gray-700 mb-2">Kakao Maps API 상태:</p>
           <p class="text-xs text-gray-600">
             페이지를 새로고침하면 지도가 표시됩니다.
           </p>
