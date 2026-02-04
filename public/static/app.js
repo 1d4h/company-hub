@@ -1971,13 +1971,13 @@ async function confirmUpload() {
 }
 
 function showCustomerDetail(customerId) {
-  console.log('📋 showCustomerDetail 호출됨 | customerId:', customerId)
+  console.log('📋 showCustomerDetail 호출됨 | customerId:', customerId, '| Type:', typeof customerId)
   
-  const customer = state.customers.find(c => c.id === customerId)
+  const customer = state.customers.find(c => String(c.id) === String(customerId))
   
   if (!customer) {
     console.error('❌ 고객을 찾을 수 없습니다 | ID:', customerId)
-    console.log('현재 state.customers:', state.customers)
+    console.log('현재 state.customers 첫 5개:', state.customers.slice(0, 5).map(c => ({ id: c.id, name: c.customer_name })))
     showToast('고객 정보를 찾을 수 없습니다', 'error')
     return
   }
@@ -2373,14 +2373,14 @@ function moveToUserLocation() {
 // 전역 함수로 등록
 // 마커 클릭 핸들러 (전역 함수)
 function handleMarkerClick(customerId) {
-  console.log('🖱️ 마커 클릭됨 | Customer ID:', customerId)
+  console.log('🖱️ 마커 클릭됨 | Customer ID:', customerId, '| Type:', typeof customerId)
   
-  // state.customers에서 고객 찾기
-  const customer = state.customers.find(c => c.id === customerId)
+  // state.customers에서 고객 찾기 (타입 변환 고려)
+  const customer = state.customers.find(c => String(c.id) === String(customerId))
   
   if (!customer) {
     console.error('❌ 고객을 찾을 수 없습니다:', customerId)
-    console.log('현재 state.customers:', state.customers)
+    console.log('현재 state.customers 첫 5개:', state.customers.slice(0, 5).map(c => ({ id: c.id, name: c.customer_name })))
     return
   }
   
