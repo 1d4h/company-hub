@@ -192,27 +192,56 @@ function parseExcel(file) {
           '구분': 'category',
           '고객명': 'customer_name',
           '전화번호': 'phone',
-          '설치연,월': 'install_date',
+          '설치연월': 'install_date',
+          '설치연,월': 'install_date',  // 쉼표 포함 버전
           '열원': 'heat_source',
           '주소': 'address',
           'A/S접수내용': 'as_content',
+          'AS접수내용': 'as_content',  // A/S 없이도 매칭
           '설치팀': 'install_team',
           '지역': 'region',
           '접수자': 'receptionist',
-          'AS결과': 'as_result'
+          'AS결과': 'as_result',
+          'A/S결과': 'as_result'  // A/S 있는 버전도 매칭
+        }
+        
+        // 헤더 정규화 함수: 줄바꿈, 공백, 특수문자 제거
+        const normalizeHeader = (header) => {
+          if (!header) return ''
+          return String(header)
+            .replace(/[\r\n\t]/g, '')  // 줄바꿈, 탭 제거
+            .replace(/\s+/g, '')        // 공백 제거
+            .trim()
         }
         
         // 헤더와 데이터 분리
-        const headers = jsonData[0]
+        const rawHeaders = jsonData[0]
+        const normalizedHeaders = rawHeaders.map(h => normalizeHeader(h))
+        
+        console.log('📋 원본 헤더:', rawHeaders)
+        console.log('📋 정규화된 헤더:', normalizedHeaders)
+        
         const rows = []
         
         for (let i = 1; i < jsonData.length; i++) {
           const row = {}
           let hasData = false
           
-          headers.forEach((header, index) => {
+          normalizedHeaders.forEach((header, index) => {
             const value = jsonData[i][index]
-            const mappedKey = headerMap[header] || header
+            
+            // 헤더 매핑 (정규화된 헤더로 찾기)
+            let mappedKey = headerMap[header]
+            
+            // 매핑이 없으면 원본 헤더로 다시 시도
+            if (!mappedKey && rawHeaders[index]) {
+              mappedKey = headerMap[rawHeaders[index]]
+            }
+            
+            // 여전히 없으면 정규화된 헤더를 그대로 사용
+            if (!mappedKey) {
+              mappedKey = header.toLowerCase().replace(/[^a-z0-9]/g, '_')
+            }
             
             if (value !== undefined && value !== null && String(value).trim() !== '') {
               row[mappedKey] = String(value).trim()
@@ -221,7 +250,7 @@ function parseExcel(file) {
           })
           
           // 빈 행 제외
-          if (hasData) {
+          if (hasData && row.customer_name) {  // 최소한 고객명은 있어야 함
             rows.push(row)
           }
         }
