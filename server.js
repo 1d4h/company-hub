@@ -157,6 +157,62 @@ app.post('/api/customers', async (c) => {
   }
 })
 
+// Excel 날짜 변환 함수 (Excel의 날짜 직렬 번호를 YYYY-MM-DD로 변환)
+function excelDateToJSDate(serial) {
+  if (!serial || typeof serial !== 'number') return null
+  const utc_days = Math.floor(serial - 25569)
+  const utc_value = utc_days * 86400
+  const date_info = new Date(utc_value * 1000)
+  
+  const year = date_info.getUTCFullYear()
+  const month = String(date_info.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date_info.getUTCDate()).padStart(2, '0')
+  
+  return `${year}-${month}-${day}`
+}
+
+// 날짜 형식 정규화 함수
+function normalizeDate(dateStr) {
+  if (!dateStr) return null
+  
+  // 숫자인 경우 (Excel 직렬 번호)
+  if (typeof dateStr === 'number') {
+    return excelDateToJSDate(dateStr)
+  }
+  
+  // 문자열인 경우
+  const str = String(dateStr).trim()
+  
+  // 이미 YYYY-MM-DD 형식
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str
+  }
+  
+  // YYYY.MM.DD 또는 YYYY/MM/DD 형식
+  if (/^\d{4}[.\/]\d{1,2}[.\/]\d{1,2}$/.test(str)) {
+    const parts = str.split(/[.\/]/)
+    const year = parts[0]
+    const month = parts[1].padStart(2, '0')
+    const day = parts[2].padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  // YYYY-MM 형식 (일자 없음)
+  if (/^\d{4}-\d{2}$/.test(str)) {
+    return `${str}-01`
+  }
+  
+  // YYYY.MM 또는 YYYY/MM 형식
+  if (/^\d{4}[.\/]\d{1,2}$/.test(str)) {
+    const parts = str.split(/[.\/]/)
+    const year = parts[0]
+    const month = parts[1].padStart(2, '0')
+    return `${year}-${month}-01`
+  }
+  
+  return null
+}
+
 // 고객 일괄 업로드
 app.post('/api/customers/batch-upload', async (c) => {
   try {
@@ -176,6 +232,7 @@ app.post('/api/customers/batch-upload', async (c) => {
     }
     
     console.log(`📤 고객 일괄 업로드 시작: ${customers.length}명`)
+    console.log('📄 첫 번째 고객 원본 데이터:', JSON.stringify(customers[0], null, 2))
     
     // 허용되는 컬럼 목록 (Supabase customers 테이블 스키마)
     const allowedColumns = [
@@ -186,24 +243,41 @@ app.post('/api/customers/batch-upload', async (c) => {
       'created_by'
     ]
     
+    // 날짜 컬럼 목록
+    const dateColumns = ['receipt_date', 'install_date']
+    
     // 데이터 정제: 허용된 컬럼만 추출하고 잘못된 키 제거
-    const cleanCustomers = customers.map(customer => {
+    const cleanCustomers = customers.map((customer, index) => {
       const cleaned = {
         created_by: userId || null
       }
       
       // 허용된 컬럼만 복사
       allowedColumns.forEach(col => {
-        if (customer[col] !== undefined && customer[col] !== null && customer[col] !== '') {
-          cleaned[col] = customer[col]
+        let value = customer[col]
+        
+        // 값이 비어있거나 undefined면 건너뛰기
+        if (value === undefined || value === null || value === '') {
+          return
         }
+        
+        // 날짜 컬럼인 경우 형식 변환
+        if (dateColumns.includes(col)) {
+          value = normalizeDate(value)
+          if (!value) {
+            console.warn(`⚠️ 고객 ${index + 1}: ${col} 날짜 변환 실패 -`, customer[col])
+            return
+          }
+        }
+        
+        cleaned[col] = value
       })
       
       return cleaned
     })
     
     console.log('🧹 데이터 정제 완료:', cleanCustomers.length, '명')
-    console.log('📝 첫 번째 고객 샘플:', JSON.stringify(cleanCustomers[0], null, 2))
+    console.log('📝 첫 번째 고객 정제된 데이터:', JSON.stringify(cleanCustomers[0], null, 2))
     
     const { data, error } = await supabase
       .from('customers')
