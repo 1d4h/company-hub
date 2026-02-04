@@ -1264,8 +1264,9 @@ function initKakaoMap() {
         const uniqueMarkerId = `marker-cid-${customer.id}`
         
         // CustomOverlay로 깔끔하고 예쁜 원형 마커 생성
+        // onclick을 인라인으로 직접 추가 (CustomOverlay는 이 방식만 작동)
         const markerContent = `
-          <div id="${uniqueMarkerId}" class="custom-marker" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
+          <div onclick="handleMarkerClick(${customer.id})" class="custom-marker" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
             <!-- 메인 마커 원 -->
             <div style="
               position: relative;
@@ -1304,48 +1305,6 @@ function initKakaoMap() {
     })
     
     console.log(`✅ Kakao Maps 초기화 완료: ${validCustomers.length}개의 마커 생성 시도, ${state.markers.length}개 성공`)
-    
-    // 모든 마커 생성 완료 후 클릭 이벤트 바인딩
-    setTimeout(() => {
-      console.log('🔗 마커 클릭 이벤트 바인딩 시작...')
-      
-      let successCount = 0
-      let failCount = 0
-      
-      validCustomers.forEach((customer, index) => {
-        const markerId = `marker-cid-${customer.id}`
-        const markerElement = document.getElementById(markerId)
-        
-        if (markerElement) {
-          // 기존 이벤트 리스너 제거 (중복 방지)
-          markerElement.replaceWith(markerElement.cloneNode(true))
-          const freshElement = document.getElementById(markerId)
-          
-          freshElement.addEventListener('click', function(e) {
-            e.stopPropagation()
-            console.log('🖱️ 마커 클릭:', customer.customer_name, '| ID:', customer.id)
-            
-            // 고객 상세 정보 표시
-            showCustomerDetailOnMap(customer)
-            
-            // 클릭한 위치 기준으로 거리순 고객 목록 표시
-            showNearbyCustomers(customer.latitude, customer.longitude)
-          })
-          
-          successCount++
-          console.log(`✅ [${index + 1}/${validCustomers.length}] 마커 클릭 이벤트 바인딩 완료: ${customer.customer_name}`)
-        } else {
-          failCount++
-          console.error(`❌ [${index + 1}/${validCustomers.length}] 마커 요소를 찾을 수 없음: ${markerId}`)
-        }
-      })
-      
-      console.log(`🎯 클릭 이벤트 바인딩 완료: 성공 ${successCount}개 / 실패 ${failCount}개`)
-      
-      if (failCount > 0) {
-        console.warn(`⚠️ ${failCount}개의 마커에서 클릭 이벤트 바인딩 실패`)
-      }
-    }, 500)
     
     showToast('지도가 로드되었습니다', 'success')
     
@@ -2412,6 +2371,32 @@ function moveToUserLocation() {
 }
 
 // 전역 함수로 등록
+// 마커 클릭 핸들러 (전역 함수)
+function handleMarkerClick(customerId) {
+  console.log('🖱️ 마커 클릭됨 | Customer ID:', customerId)
+  
+  // state.customers에서 고객 찾기
+  const customer = state.customers.find(c => c.id === customerId)
+  
+  if (!customer) {
+    console.error('❌ 고객을 찾을 수 없습니다:', customerId)
+    console.log('현재 state.customers:', state.customers)
+    return
+  }
+  
+  console.log('✅ 고객 정보 찾음:', customer.customer_name)
+  
+  // 고객 상세 정보 표시
+  showCustomerDetailOnMap(customer)
+  
+  // 클릭한 위치 기준으로 거리순 고객 목록 표시
+  if (customer.latitude && customer.longitude) {
+    showNearbyCustomers(customer.latitude, customer.longitude)
+  }
+}
+
+// 전역 함수로 등록
+window.handleMarkerClick = handleMarkerClick
 window.logout = logout
 window.switchToUserView = switchToUserView
 window.toggleSelectAll = toggleSelectAll
