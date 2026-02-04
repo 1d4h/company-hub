@@ -1644,7 +1644,7 @@ function toggleSelectAll(checkbox) {
 
 async function deleteSelectedCustomers() {
   const checkboxes = document.querySelectorAll('.customer-checkbox:checked')
-  const ids = Array.from(checkboxes).map(cb => parseInt(cb.value))
+  const ids = Array.from(checkboxes).map(cb => cb.value)  // UUID를 그대로 사용
   
   if (ids.length === 0) {
     showToast('삭제할 고객을 선택해주세요', 'error')
@@ -1655,6 +1655,7 @@ async function deleteSelectedCustomers() {
     return
   }
   
+  console.log('🗑️ 삭제 시도:', ids)
   await batchDeleteCustomers(ids)
   updateDashboardStats()
   renderCustomerTable()
