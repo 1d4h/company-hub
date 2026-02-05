@@ -1371,28 +1371,50 @@ function initKakaoMap() {
         // 각 마커에 고유 ID 생성 (customer.id만 사용)
         const uniqueMarkerId = `marker-cid-${customer.id}`
         
-        // CustomOverlay로 깔끔하고 예쁜 원형 마커 생성
+        // CustomOverlay로 핀포인트 말풍선 마커 생성
         // onclick을 인라인으로 직접 추가 (CustomOverlay는 이 방식만 작동)
         const markerContent = `
-          <div onclick="handleMarkerClick('${customer.id}')" class="custom-marker" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
-            <!-- 메인 마커 원 -->
-            <div style="
-              position: relative;
-              width: 40px;
-              height: 40px;
-              background: ${bgColor};
-              border-radius: 50%;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-              border: 3px solid white;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            ">
-              <!-- 아이콘 -->
-              <i class="fas ${iconClass}" style="
-                color: ${iconColor};
-                font-size: 18px;
-              "></i>
+          <div onclick="handleMarkerClick('${customer.id}')" class="custom-marker" id="${uniqueMarkerId}" data-customer-id="${customer.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -100%);">
+            <!-- 핀포인트 말풍선 컨테이너 -->
+            <div style="position: relative;">
+              <!-- 상단 원형 부분 -->
+              <div style="
+                width: 48px;
+                height: 48px;
+                background: ${bgColor};
+                border-radius: 50% 50% 50% 0;
+                transform: rotate(-45deg);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                border: 3px solid white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+              ">
+                <!-- 아이콘 (회전 보정) -->
+                <i class="fas ${iconClass}" style="
+                  color: ${iconColor};
+                  font-size: 20px;
+                  transform: rotate(45deg);
+                  position: absolute;
+                  top: 50%;
+                  left: 50%;
+                  transform: translate(-50%, -50%) rotate(45deg);
+                "></i>
+              </div>
+              <!-- 하단 꼬리 부분 -->
+              <div style="
+                position: absolute;
+                bottom: -8px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 0;
+                height: 0;
+                border-left: 8px solid transparent;
+                border-right: 8px solid transparent;
+                border-top: 12px solid ${bgColor};
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+              "></div>
             </div>
           </div>
         `
@@ -3078,23 +3100,43 @@ function updateMarkerColor(customerId, status) {
       }
       
       const markerContent = `
-        <div onclick="handleMarkerClick('${cust.id}')" class="custom-marker" data-customer-id="${cust.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -50%);">
-          <div style="
-            position: relative;
-            width: 40px;
-            height: 40px;
-            background: ${bgColor};
-            border-radius: 50%;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            border: 3px solid white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">
-            <i class="fas ${iconClass}" style="
-              color: ${iconColor};
-              font-size: 18px;
-            "></i>
+        <div onclick="handleMarkerClick('${cust.id}')" class="custom-marker" id="marker-cid-${cust.id}" data-customer-id="${cust.id}" style="position: relative; cursor: pointer; transform: translate(-50%, -100%);">
+          <div style="position: relative;">
+            <div style="
+              width: 48px;
+              height: 48px;
+              background: ${bgColor};
+              border-radius: 50% 50% 50% 0;
+              transform: rotate(-45deg);
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              border: 3px solid white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              position: relative;
+            ">
+              <i class="fas ${iconClass}" style="
+                color: ${iconColor};
+                font-size: 20px;
+                transform: rotate(45deg);
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(45deg);
+              "></i>
+            </div>
+            <div style="
+              position: absolute;
+              bottom: -8px;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 0;
+              height: 0;
+              border-left: 8px solid transparent;
+              border-right: 8px solid transparent;
+              border-top: 12px solid ${bgColor};
+              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            "></div>
           </div>
         </div>
       `

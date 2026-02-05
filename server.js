@@ -499,37 +499,6 @@ app.post('/api/customers/as-photo/upload', async (c) => {
       type: photo.type
     })
     
-    // 버킷 존재 확인 및 생성
-    const bucketName = 'as-photos'
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets()
-    
-    if (listError) {
-      console.error('❌ 버킷 목록 조회 오류:', listError)
-    } else {
-      const bucketExists = buckets.some(b => b.name === bucketName)
-      
-      if (!bucketExists) {
-        console.log('⚠️ as-photos 버킷이 없습니다. 생성 시도...')
-        const { data: newBucket, error: createError } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          fileSizeLimit: 10485760 // 10MB
-        })
-        
-        if (createError) {
-          console.error('❌ 버킷 생성 오류:', createError)
-          return c.json({ 
-            success: false, 
-            message: `버킷 생성 실패: ${createError.message}`,
-            error: createError 
-          }, 500)
-        }
-        
-        console.log('✅ as-photos 버킷 생성 완료')
-      } else {
-        console.log('✅ as-photos 버킷 확인 완료')
-      }
-    }
-    
     // Base64를 Buffer로 변환
     const base64Data = photo.dataUrl.split(',')[1]
     const buffer = Buffer.from(base64Data, 'base64')
@@ -541,7 +510,9 @@ app.post('/api/customers/as-photo/upload', async (c) => {
     
     console.log('📁 Storage 경로:', storagePath)
     
-    // Supabase Storage에 업로드
+    const bucketName = 'as-photos'
+    
+    // Supabase Storage에 업로드 (버킷이 이미 존재한다고 가정)
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucketName)
       .upload(storagePath, buffer, {
@@ -552,6 +523,17 @@ app.post('/api/customers/as-photo/upload', async (c) => {
     if (uploadError) {
       console.error('❌ Storage 업로드 오류:', uploadError)
       console.error('오류 상세:', JSON.stringify(uploadError, null, 2))
+      
+      // 버킷이 없는 경우 명확한 안내
+      if (uploadError.message && uploadError.message.includes('Bucket not found')) {
+        return c.json({ 
+          success: false, 
+          message: 'Storage 버킷이 없습니다. Supabase Dashboard에서 "as-photos" 버킷을 생성해주세요.',
+          error: uploadError,
+          instruction: 'Supabase Dashboard → Storage → New Bucket → Name: "as-photos" → Public: true'
+        }, 500)
+      }
+      
       return c.json({ 
         success: false, 
         message: `업로드 실패: ${uploadError.message}`,
