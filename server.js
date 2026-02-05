@@ -454,6 +454,78 @@ app.post('/api/customers/validate', async (c) => {
 // ============================================
 // A/S 결과 API (Supabase 연동)
 // ============================================
+
+// A/S 사진 업로드 API (서버에서 Supabase Storage에 업로드)
+app.post('/api/customers/as-photo/upload', async (c) => {
+  try {
+    const { customerId, photo } = await c.req.json()
+    
+    if (!customerId || !photo) {
+      return c.json({ success: false, message: '고객 ID와 사진 데이터가 필요합니다.' }, 400)
+    }
+    
+    console.log('📤 사진 업로드 요청:', {
+      customerId,
+      filename: photo.filename,
+      size: photo.size,
+      type: photo.type
+    })
+    
+    // Base64를 Buffer로 변환
+    const base64Data = photo.dataUrl.split(',')[1]
+    const buffer = Buffer.from(base64Data, 'base64')
+    
+    // Storage 경로 생성
+    const timestamp = Date.now()
+    const randomStr = Math.random().toString(36).substring(7)
+    const storagePath = `${customerId}/${timestamp}_${randomStr}_${photo.filename}`
+    
+    console.log('📁 Storage 경로:', storagePath)
+    
+    // Supabase Storage에 업로드
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('as-photos')
+      .upload(storagePath, buffer, {
+        contentType: photo.type,
+        upsert: false
+      })
+    
+    if (uploadError) {
+      console.error('❌ Storage 업로드 오류:', uploadError)
+      return c.json({ 
+        success: false, 
+        message: `업로드 실패: ${uploadError.message}`,
+        error: uploadError 
+      }, 500)
+    }
+    
+    console.log('✅ Storage 업로드 성공:', uploadData.path)
+    
+    // Public URL 가져오기
+    const { data: urlData } = supabase.storage
+      .from('as-photos')
+      .getPublicUrl(storagePath)
+    
+    console.log('🔗 Public URL:', urlData.publicUrl)
+    
+    return c.json({
+      success: true,
+      storagePath: storagePath,
+      url: urlData.publicUrl,
+      filename: photo.filename,
+      size: photo.size,
+      type: photo.type
+    })
+  } catch (error) {
+    console.error('❌ 사진 업로드 오류:', error)
+    return c.json({ 
+      success: false, 
+      message: '사진 업로드 중 오류가 발생했습니다.',
+      error: error.message 
+    }, 500)
+  }
+})
+
 app.post('/api/customers/as-result', async (c) => {
   try {
     const { customerId, resultText, uploadedPhotos, completedAt } = await c.req.json()

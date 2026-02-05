@@ -2748,7 +2748,17 @@ async function handleASPhotoUpload(event) {
     return
   }
   
-  // 각 파일을 즉시 Supabase Storage에 업로드
+  // Supabase 클라이언트 확인
+  if (!window.supabaseClient) {
+    console.error('❌ Supabase 클라이언트가 초기화되지 않았습니다')
+    showToast('시스템 오류: Supabase 클라이언트 없음', 'error')
+    return
+  }
+  
+  console.log('✅ Supabase 클라이언트 확인 완료')
+  console.log('📋 고객 ID:', state.currentASCustomerId)
+  
+  // 각 파일을 서버를 통해 Supabase Storage에 업로드
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
     
@@ -2768,49 +2778,43 @@ async function handleASPhotoUpload(event) {
         reader.readAsDataURL(file)
       })
       
-      // Base64를 Blob으로 변환
-      const base64Data = dataUrl.split(',')[1]
-      const binaryData = atob(base64Data)
-      const bytes = new Uint8Array(binaryData.length)
-      for (let j = 0; j < binaryData.length; j++) {
-        bytes[j] = binaryData.charCodeAt(j)
-      }
-      const blob = new Blob([bytes], { type: file.type })
+      console.log(`📦 사진 ${i + 1} Base64 변환 완료 (${file.size} bytes)`)
       
-      // Storage 경로 생성
-      const timestamp = Date.now()
-      const randomStr = Math.random().toString(36).substring(7)
-      const storagePath = `${state.currentASCustomerId}/${timestamp}_${randomStr}_${file.name}`
-      
-      // Supabase Storage에 업로드
-      const { data: uploadData, error: uploadError } = await window.supabaseClient.storage
-        .from('as-photos')
-        .upload(storagePath, blob, {
-          contentType: file.type,
-          upsert: false
+      // 서버 API를 통해 업로드
+      const response = await fetch('/api/customers/as-photo/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          customerId: state.currentASCustomerId,
+          photo: {
+            dataUrl: dataUrl,
+            filename: file.name,
+            size: file.size,
+            type: file.type
+          }
         })
+      })
       
-      if (uploadError) {
-        console.error(`❌ 사진 ${i + 1} 업로드 실패:`, uploadError)
-        showToast(`사진 업로드 실패: ${file.name}`, 'error')
+      const result = await response.json()
+      
+      if (!response.ok || !result.success) {
+        console.error(`❌ 사진 ${i + 1} 업로드 실패:`, result)
+        showToast(`사진 업로드 실패: ${result.message || file.name}`, 'error')
         continue
       }
       
-      console.log(`✅ 사진 ${i + 1} 업로드 성공:`, storagePath)
-      
-      // Public URL 가져오기
-      const { data: urlData } = window.supabaseClient.storage
-        .from('as-photos')
-        .getPublicUrl(storagePath)
+      console.log(`✅ 사진 ${i + 1} 업로드 성공:`, result.storagePath)
       
       // state.asPhotos에 추가 (Storage URL 사용)
       const photoData = {
-        id: timestamp + i,
-        url: urlData.publicUrl,
-        storagePath: storagePath,
-        filename: file.name,
-        size: file.size,
-        type: file.type,
+        id: Date.now() + i,
+        url: result.url,
+        storagePath: result.storagePath,
+        filename: result.filename,
+        size: result.size,
+        type: result.type,
         isExisting: false  // 새로 업로드된 사진
       }
       
