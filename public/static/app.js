@@ -14,7 +14,8 @@ const state = {
   mapType: 'normal',  // 'normal' 또는 'satellite'
   sortedCustomers: null,  // 거리순 정렬된 고객 목록
   asPhotos: [],  // A/S 사진 배열
-  currentASCustomerId: null  // 현재 A/S 작업 중인 고객 ID
+  currentASCustomerId: null,  // 현재 A/S 작업 중인 고객 ID
+  gpsEnabled: true  // GPS 활성화 상태 (기본값: 활성화)
 }
 
 // ============================================
@@ -814,6 +815,16 @@ function renderUserMap() {
       <div class="flex-1 relative">
         <div id="map" class="w-full h-full"></div>
         
+        <!-- GPS 토글 버튼 (좌측 상단) -->
+        <button 
+          onclick="toggleGPS()" 
+          id="gpsToggleBtn"
+          class="absolute top-4 left-4 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition z-20"
+          title="GPS 활성화/비활성화"
+        >
+          <i class="fas fa-crosshairs text-xl" id="gpsIcon"></i>
+        </button>
+        
         
         <!-- 고객 상세 정보 패널 (모바일 최적화: 전체 화면 모달) -->
         <div id="customerDetailPanel" class="hidden fixed inset-0 bg-white z-30 overflow-y-auto md:absolute md:top-4 md:right-4 md:left-auto md:bottom-auto md:rounded-xl md:shadow-xl md:w-80 md:max-h-[calc(100vh-120px)]">
@@ -1258,43 +1269,8 @@ function initKakaoMap() {
     let centerLat, centerLng, level
     
     // 지도 중심 결정 우선순위: 1) 가장 밀집된 고객 지역 2) 서울 중심
-    // 관리자는 GPS 사용 안 함 (사용자 계정만)
     
-    // 1순위: GPS 위치 확인 및 사용 (일반 사용자만)
-    if (navigator.geolocation && state.currentUser && state.currentUser.role !== 'admin') {
-      console.log('📍 GPS 위치 확인 중...')
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // GPS 위치 저장
-          state.userLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          }
-          console.log(`✅ GPS 위치 확인: ${state.userLocation.lat}, ${state.userLocation.lng}`)
-          
-          // 지도 중심을 GPS 위치로 이동
-          if (state.map) {
-            state.map.setCenter(new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng))
-            state.map.setLevel(4)  // GPS 위치는 확대
-            showToast('GPS 위치로 이동했습니다', 'success')
-            
-            // GPS 마커 추가
-            addUserLocationMarker()
-          }
-        },
-        (error) => {
-          console.log('⚠️ GPS 위치 가져오기 실패:', error.message)
-          console.log('오류 코드:', error.code, '| PERMISSION_DENIED=1, POSITION_UNAVAILABLE=2, TIMEOUT=3')
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      )
-    }
-    
-    // 2순위: 가장 밀집된 고객 지역
+    // 1순위: 가장 밀집된 고객 지역
     if (validCustomers.length > 0) {
       // 가장 밀집된 지역 찾기 (각 고객 주변 반경 5km 내 고객 수 계산)
       let maxDensityCustomer = validCustomers[0]
@@ -1437,13 +1413,39 @@ function initKakaoMap() {
     
     showToast('지도가 로드되었습니다', 'success')
     
-    // 지도 초기화 완료 후 GPS 위치 요청
-    requestUserLocation()
+    // GPS 버튼 초기 상태 설정
+    updateGPSButtonStyle()
+    
+    // 지도 초기화 완료 후 GPS 위치 요청 (GPS 활성화 상태일 때만)
+    if (state.gpsEnabled) {
+      requestUserLocation()
+    }
     
   } catch (error) {
     console.error('❌ Kakao Maps 초기화 실패:', error)
     showMapFallback()
     showToast('지도 로드 실패: Kakao Maps API를 확인해주세요', 'error')
+  }
+}
+
+// GPS 버튼 스타일 업데이트
+function updateGPSButtonStyle() {
+  const gpsIcon = document.getElementById('gpsIcon')
+  const gpsBtn = document.getElementById('gpsToggleBtn')
+  
+  if (!gpsIcon || !gpsBtn) {
+    console.log('⚠️ GPS 버튼 요소를 찾을 수 없습니다')
+    return
+  }
+  
+  if (state.gpsEnabled) {
+    gpsIcon.style.color = '#3B82F6'  // 파란색
+    gpsBtn.style.backgroundColor = '#EFF6FF'  // 연한 파란색 배경
+    console.log('✅ GPS 버튼 활성화 스타일 적용')
+  } else {
+    gpsIcon.style.color = '#6B7280'  // 회색
+    gpsBtn.style.backgroundColor = '#FFFFFF'  // 흰색 배경
+    console.log('⭕ GPS 버튼 비활성화 스타일 적용')
   }
 }
 
@@ -2509,6 +2511,81 @@ function moveToUserLocation() {
   }
 }
 
+// GPS 토글 기능
+function toggleGPS() {
+  // GPS 상태 토글
+  state.gpsEnabled = !state.gpsEnabled
+  
+  // 버튼 스타일 업데이트
+  updateGPSButtonStyle()
+  
+  if (state.gpsEnabled) {
+    // GPS 활성화
+    console.log('✅ GPS 활성화')
+    
+    // GPS 위치 요청
+    if (!navigator.geolocation) {
+      showToast('GPS를 지원하지 않는 브라우저입니다', 'error')
+      state.gpsEnabled = false
+      updateGPSButtonStyle()
+      return
+    }
+    
+    showToast('GPS 위치를 가져오는 중...', 'info')
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        state.userLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        }
+        console.log(`✅ GPS 위치: ${state.userLocation.lat}, ${state.userLocation.lng}`)
+        
+        // GPS 위치로 지도 중심 이동
+        if (state.map) {
+          const moveLatLon = new kakao.maps.LatLng(state.userLocation.lat, state.userLocation.lng)
+          state.map.setCenter(moveLatLon)
+          state.map.setLevel(4)
+          
+          // GPS 마커 추가
+          addUserLocationMarker()
+          
+          showToast('GPS가 활성화되었습니다', 'success')
+        }
+      },
+      (error) => {
+        console.error('GPS 오류:', error)
+        let errorMsg = '위치를 가져올 수 없습니다'
+        if (error.code === 1) errorMsg = '위치 권한이 필요합니다'
+        else if (error.code === 2) errorMsg = '위치 정보를 사용할 수 없습니다'
+        else if (error.code === 3) errorMsg = '위치 요청 시간이 초과되었습니다'
+        showToast(errorMsg, 'warning')
+        state.gpsEnabled = false
+        updateGPSButtonStyle()
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    )
+  } else {
+    // GPS 비활성화
+    console.log('⭕ GPS 비활성화')
+    
+    // GPS 마커 제거
+    if (state.userLocationMarker) {
+      state.userLocationMarker.setMap(null)
+      state.userLocationMarker = null
+    }
+    
+    // GPS 위치 초기화
+    state.userLocation = null
+    
+    showToast('GPS가 비활성화되었습니다', 'info')
+  }
+}
+
 // 전역 함수로 등록
 // 마커 클릭 핸들러 (전역 함수)
 function handleMarkerClick(customerId) {
@@ -2646,8 +2723,8 @@ function closeASResultModal() {
   state.asPhotos = []
 }
 
-// A/S 사진 업로드 처리
-function handleASPhotoUpload(event) {
+// A/S 사진 업로드 처리 (즉시 Supabase Storage에 업로드)
+async function handleASPhotoUpload(event) {
   const files = event.target.files
   
   if (!files || files.length === 0) {
@@ -2663,45 +2740,95 @@ function handleASPhotoUpload(event) {
     return
   }
   
-  console.log(`📷 사진 ${files.length}개 업로드 시작...`)
+  console.log(`📷 사진 ${files.length}개 즉시 업로드 시작...`)
   
-  // 파일들을 읽어서 Base64로 변환
-  Array.from(files).forEach((file, index) => {
+  // 고객 ID 확인
+  if (!state.currentASCustomerId) {
+    showToast('고객 정보를 찾을 수 없습니다', 'error')
+    return
+  }
+  
+  // 각 파일을 즉시 Supabase Storage에 업로드
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    
     if (!file.type.startsWith('image/')) {
       console.warn('⚠️ 이미지 파일이 아닙니다:', file.name)
-      return
+      continue
     }
     
-    const reader = new FileReader()
-    
-    reader.onload = (e) => {
+    try {
+      console.log(`📤 사진 ${i + 1}/${files.length} 업로드 중: ${file.name}`)
+      
+      // FileReader로 Base64 변환
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = (e) => resolve(e.target.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      
+      // Base64를 Blob으로 변환
+      const base64Data = dataUrl.split(',')[1]
+      const binaryData = atob(base64Data)
+      const bytes = new Uint8Array(binaryData.length)
+      for (let j = 0; j < binaryData.length; j++) {
+        bytes[j] = binaryData.charCodeAt(j)
+      }
+      const blob = new Blob([bytes], { type: file.type })
+      
+      // Storage 경로 생성
+      const timestamp = Date.now()
+      const randomStr = Math.random().toString(36).substring(7)
+      const storagePath = `${state.currentASCustomerId}/${timestamp}_${randomStr}_${file.name}`
+      
+      // Supabase Storage에 업로드
+      const { data: uploadData, error: uploadError } = await window.supabaseClient.storage
+        .from('as-photos')
+        .upload(storagePath, blob, {
+          contentType: file.type,
+          upsert: false
+        })
+      
+      if (uploadError) {
+        console.error(`❌ 사진 ${i + 1} 업로드 실패:`, uploadError)
+        showToast(`사진 업로드 실패: ${file.name}`, 'error')
+        continue
+      }
+      
+      console.log(`✅ 사진 ${i + 1} 업로드 성공:`, storagePath)
+      
+      // Public URL 가져오기
+      const { data: urlData } = window.supabaseClient.storage
+        .from('as-photos')
+        .getPublicUrl(storagePath)
+      
+      // state.asPhotos에 추가 (Storage URL 사용)
       const photoData = {
-        id: Date.now() + index,
-        dataUrl: e.target.result,
+        id: timestamp + i,
+        url: urlData.publicUrl,
+        storagePath: storagePath,
         filename: file.name,
         size: file.size,
-        type: file.type
+        type: file.type,
+        isExisting: false  // 새로 업로드된 사진
       }
       
       state.asPhotos.push(photoData)
       
-      console.log(`✅ 사진 추가됨: ${file.name} (${index + 1}/${files.length})`)
-      
       // 미리보기 업데이트
       updateASPhotoPreview()
       
-      if (state.asPhotos.length === currentCount + files.length) {
-        showToast(`사진 ${files.length}개가 추가되었습니다`, 'success')
-      }
+    } catch (error) {
+      console.error(`❌ 사진 ${i + 1} 처리 오류:`, error)
+      showToast(`사진 처리 실패: ${file.name}`, 'error')
     }
-    
-    reader.onerror = () => {
-      console.error('❌ 파일 읽기 실패:', file.name)
-      showToast(`파일 읽기 실패: ${file.name}`, 'error')
-    }
-    
-    reader.readAsDataURL(file)
-  })
+  }
+  
+  if (state.asPhotos.length > currentCount) {
+    const uploadedCount = state.asPhotos.length - currentCount
+    showToast(`사진 ${uploadedCount}개가 업로드되었습니다`, 'success')
+  }
   
   // input 초기화
   event.target.value = ''
@@ -2785,6 +2912,7 @@ async function completeASResult() {
   const customer = state.customers.find(c => String(c.id) === String(customerId))
   if (customer) {
     customer.as_result_text = resultText
+    customer.as_result_photos = [...state.asPhotos]
     customer.as_result = 'completed'  // 완료 상태
     customer.as_result_status = 'completed'
     customer.as_completed_at = new Date().toISOString()
@@ -2800,79 +2928,26 @@ async function completeASResult() {
   closeCustomerDetail()
   
   // 성공 메시지 (즉시)
-  showToast('A/S 작업이 완료되었습니다. 사진을 업로드 중입니다...', 'success')
+  showToast('A/S 작업이 완료되었습니다', 'success')
   
-  // 백그라운드에서 사진 업로드 및 저장 (2단계: 비동기 처리)
+  // 백그라운드에서 메타데이터 저장 (2단계: 비동기 처리)
+  // 사진은 이미 Storage에 업로드됨
   setTimeout(async () => {
     try {
-      console.log('📤 백그라운드에서 사진 업로드 및 저장 중...')
+      console.log('📤 백그라운드에서 메타데이터 저장 중...')
       
-      // 임시 record ID 생성 (나중에 실제 ID로 교체)
-      const tempRecordId = Date.now()
+      // 업로드된 사진 정보만 전송 (이미 Storage에 있음)
+      const uploadedPhotos = state.asPhotos.map(photo => ({
+        storagePath: photo.storagePath,
+        url: photo.url,
+        filename: photo.filename,
+        size: photo.size,
+        type: photo.type
+      }))
       
-      // 새로운 사진만 필터링 (기존 사진 제외)
-      const newPhotos = state.asPhotos.filter(p => !p.isExisting && p.dataUrl)
+      console.log(`📸 저장할 사진 메타데이터: ${uploadedPhotos.length}개`)
       
-      console.log(`📸 업로드할 사진: ${newPhotos.length}개`)
-      
-      // 사진을 Supabase Storage에 직접 업로드
-      const uploadedPhotos = []
-      
-      for (let i = 0; i < newPhotos.length; i++) {
-        const photo = newPhotos[i]
-        
-        try {
-          console.log(`📷 사진 ${i + 1}/${newPhotos.length} 업로드 중: ${photo.filename}`)
-          
-          // Base64를 Blob으로 변환
-          const base64Data = photo.dataUrl.split(',')[1]
-          const binaryData = atob(base64Data)
-          const bytes = new Uint8Array(binaryData.length)
-          for (let j = 0; j < binaryData.length; j++) {
-            bytes[j] = binaryData.charCodeAt(j)
-          }
-          const blob = new Blob([bytes], { type: photo.type })
-          
-          // Storage 경로 생성
-          const timestamp = Date.now()
-          const randomStr = Math.random().toString(36).substring(7)
-          const storagePath = `${customerId}/${timestamp}_${randomStr}_${photo.filename}`
-          
-          // Supabase Storage에 업로드
-          const { data: uploadData, error: uploadError } = await window.supabaseClient.storage
-            .from('as-photos')
-            .upload(storagePath, blob, {
-              contentType: photo.type,
-              upsert: false
-            })
-          
-          if (uploadError) {
-            console.error(`❌ 사진 ${i + 1} 업로드 실패:`, uploadError)
-            continue
-          }
-          
-          console.log(`✅ 사진 ${i + 1} 업로드 성공:`, storagePath)
-          
-          // Public URL 가져오기
-          const { data: urlData } = window.supabaseClient.storage
-            .from('as-photos')
-            .getPublicUrl(storagePath)
-          
-          uploadedPhotos.push({
-            storagePath: storagePath,
-            url: urlData.publicUrl,
-            filename: photo.filename,
-            size: photo.size,
-            type: photo.type
-          })
-        } catch (photoError) {
-          console.error(`❌ 사진 ${i + 1} 처리 오류:`, photoError)
-        }
-      }
-      
-      console.log(`✅ 사진 업로드 완료: ${uploadedPhotos.length}/${newPhotos.length}개`)
-      
-      // 서버에 메타데이터 저장 (Storage 경로만 전송)
+      // 서버에 메타데이터 저장
       const response = await fetch('/api/customers/as-result', {
         method: 'POST',
         headers: {
@@ -2881,7 +2956,7 @@ async function completeASResult() {
         body: JSON.stringify({
           customerId: customerId,
           resultText: resultText,
-          uploadedPhotos: uploadedPhotos,  // Storage에 이미 업로드된 사진 정보
+          uploadedPhotos: uploadedPhotos,
           completedAt: new Date().toISOString()
         })
       })
@@ -2893,18 +2968,11 @@ async function completeASResult() {
       const data = await response.json()
       console.log('✅ 메타데이터 저장 성공:', data)
       
-      // 고객 정보에 업로드된 사진 URL 저장
-      if (customer) {
-        customer.as_result_photos = uploadedPhotos
-      }
-      
-      showToast(`사진 ${uploadedPhotos.length}개 업로드 완료`, 'success')
-      
     } catch (error) {
       console.error('❌ 백그라운드 저장 실패:', error)
-      showToast('사진 업로드 중 오류가 발생했습니다', 'error')
+      showToast('메타데이터 저장 중 오류가 발생했습니다', 'error')
     }
-  }, 100)  // 100ms 후 백그라운드 업로드 시작
+  }, 100)  // 100ms 후 백그라운드 저장 시작
 }
 
 // 마커 색상 업데이트
@@ -3000,6 +3068,7 @@ window.closeASResultModal = closeASResultModal
 window.handleASPhotoUpload = handleASPhotoUpload
 window.removeASPhoto = removeASPhoto
 window.completeASResult = completeASResult
+window.toggleGPS = toggleGPS
 window.logout = logout
 window.switchToUserView = switchToUserView
 window.toggleSelectAll = toggleSelectAll
