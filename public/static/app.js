@@ -680,6 +680,9 @@ function renderAdminDashboard() {
               <i class="fas fa-list mr-2"></i>고객 목록
             </h2>
             <div class="flex space-x-3">
+              <button onclick="downloadASResults()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-file-download mr-2"></i>A/S 결과 다운로드
+              </button>
               <button onclick="openUploadModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                 <i class="fas fa-file-excel mr-2"></i>Excel 업로드
               </button>
@@ -1629,6 +1632,53 @@ function logout() {
 
 function switchToUserView() {
   renderUserMap()
+}
+
+// A/S 결과 Excel 다운로드
+async function downloadASResults() {
+  try {
+    console.log('📊 A/S 결과 다운로드 시작...')
+    showToast('Excel 파일을 생성 중입니다...', 'info')
+    
+    // 서버에서 Excel 파일 다운로드
+    const response = await fetch('/api/as-results/export')
+    
+    if (!response.ok) {
+      throw new Error('Excel 파일 생성 실패')
+    }
+    
+    // Blob으로 변환
+    const blob = await response.blob()
+    
+    // 파일명 추출 (Content-Disposition 헤더에서)
+    const contentDisposition = response.headers.get('Content-Disposition')
+    let filename = 'AS결과.xlsx'
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?;?/)
+      if (filenameMatch && filenameMatch[1]) {
+        filename = decodeURIComponent(filenameMatch[1])
+      }
+    }
+    
+    // 다운로드 링크 생성 및 클릭
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    
+    // 정리
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    
+    console.log('✅ Excel 다운로드 완료:', filename)
+    showToast('Excel 파일이 다운로드되었습니다', 'success')
+  } catch (error) {
+    console.error('❌ Excel 다운로드 오류:', error)
+    showToast('Excel 다운로드 중 오류가 발생했습니다', 'error')
+  }
 }
 
 function toggleSelectAll(checkbox) {
@@ -3077,6 +3127,7 @@ window.logout = logout
 window.switchToUserView = switchToUserView
 window.toggleSelectAll = toggleSelectAll
 window.deleteSelectedCustomers = deleteSelectedCustomers
+window.downloadASResults = downloadASResults
 window.openUploadModal = openUploadModal
 window.closeUploadModal = closeUploadModal
 window.handleFileSelect = handleFileSelect

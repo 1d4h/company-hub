@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
+import ExcelJS from 'exceljs'
 import 'dotenv/config'
 
 const app = new Hono()
@@ -455,6 +456,33 @@ app.post('/api/customers/validate', async (c) => {
 // A/S 결과 API (Supabase 연동)
 // ============================================
 
+// Storage 버킷 목록 확인 (디버깅용)
+app.get('/api/storage/buckets', async (c) => {
+  try {
+    const { data: buckets, error } = await supabase.storage.listBuckets()
+    
+    if (error) {
+      console.error('❌ 버킷 목록 조회 오류:', error)
+      return c.json({ success: false, error: error.message }, 500)
+    }
+    
+    console.log('📦 Storage 버킷 목록:', buckets)
+    
+    return c.json({
+      success: true,
+      buckets: buckets.map(b => ({
+        id: b.id,
+        name: b.name,
+        public: b.public,
+        created_at: b.created_at
+      }))
+    })
+  } catch (error) {
+    console.error('❌ 버킷 확인 오류:', error)
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
 // A/S 사진 업로드 API (서버에서 Supabase Storage에 업로드)
 app.post('/api/customers/as-photo/upload', async (c) => {
   try {
@@ -471,6 +499,37 @@ app.post('/api/customers/as-photo/upload', async (c) => {
       type: photo.type
     })
     
+    // 버킷 존재 확인 및 생성
+    const bucketName = 'as-photos'
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets()
+    
+    if (listError) {
+      console.error('❌ 버킷 목록 조회 오류:', listError)
+    } else {
+      const bucketExists = buckets.some(b => b.name === bucketName)
+      
+      if (!bucketExists) {
+        console.log('⚠️ as-photos 버킷이 없습니다. 생성 시도...')
+        const { data: newBucket, error: createError } = await supabase.storage.createBucket(bucketName, {
+          public: true,
+          fileSizeLimit: 10485760 // 10MB
+        })
+        
+        if (createError) {
+          console.error('❌ 버킷 생성 오류:', createError)
+          return c.json({ 
+            success: false, 
+            message: `버킷 생성 실패: ${createError.message}`,
+            error: createError 
+          }, 500)
+        }
+        
+        console.log('✅ as-photos 버킷 생성 완료')
+      } else {
+        console.log('✅ as-photos 버킷 확인 완료')
+      }
+    }
+    
     // Base64를 Buffer로 변환
     const base64Data = photo.dataUrl.split(',')[1]
     const buffer = Buffer.from(base64Data, 'base64')
@@ -484,7 +543,7 @@ app.post('/api/customers/as-photo/upload', async (c) => {
     
     // Supabase Storage에 업로드
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('as-photos')
+      .from(bucketName)
       .upload(storagePath, buffer, {
         contentType: photo.type,
         upsert: false
@@ -492,6 +551,7 @@ app.post('/api/customers/as-photo/upload', async (c) => {
     
     if (uploadError) {
       console.error('❌ Storage 업로드 오류:', uploadError)
+      console.error('오류 상세:', JSON.stringify(uploadError, null, 2))
       return c.json({ 
         success: false, 
         message: `업로드 실패: ${uploadError.message}`,
@@ -503,7 +563,7 @@ app.post('/api/customers/as-photo/upload', async (c) => {
     
     // Public URL 가져오기
     const { data: urlData } = supabase.storage
-      .from('as-photos')
+      .from(bucketName)
       .getPublicUrl(storagePath)
     
     console.log('🔗 Public URL:', urlData.publicUrl)
@@ -652,6 +712,167 @@ app.get('/api/customers/:id/as-result', async (c) => {
   } catch (error) {
     console.error('❌ A/S 결과 조회 오류:', error)
     return c.json({ success: false, message: 'A/S 결과 조회 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// A/S 결과 Excel 다운로드
+app.get('/api/as-results/export', async (c) => {
+  try {
+    console.log('📊 A/S 결과 Excel 내보내기 시작...')
+    
+    // 모든 고객 정보 조회
+    const { data: customers, error: customerError } = await supabase
+      .from('customers')
+      .select('*')
+      .order('created_at', { ascending: false })
+    
+    if (customerError) {
+      console.error('❌ 고객 정보 조회 오류:', customerError)
+      return c.json({ success: false, message: '고객 정보 조회 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    // 모든 A/S 기록 조회
+    const { data: asRecords, error: recordError } = await supabase
+      .from('as_records')
+      .select('*')
+      .order('created_at', { ascending: false })
+    
+    if (recordError) {
+      console.error('❌ A/S 기록 조회 오류:', recordError)
+      return c.json({ success: false, message: 'A/S 기록 조회 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    // A/S 사진 정보 조회
+    const { data: asPhotos, error: photoError } = await supabase
+      .from('as_photos')
+      .select('*')
+    
+    if (photoError) {
+      console.error('❌ A/S 사진 조회 오류:', photoError)
+    }
+    
+    // Excel 워크북 생성
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('A/S 결과')
+    
+    // 헤더 스타일
+    const headerStyle = {
+      font: { bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    }
+    
+    // 컬럼 정의
+    worksheet.columns = [
+      { header: 'No.', key: 'no', width: 8 },
+      { header: '고객명', key: 'customer_name', width: 15 },
+      { header: '전화번호', key: 'phone', width: 15 },
+      { header: '주소', key: 'address', width: 40 },
+      { header: '지역', key: 'region', width: 12 },
+      { header: 'A/S 상태', key: 'as_result', width: 12 },
+      { header: 'A/S 작업 내용', key: 'result_text', width: 50 },
+      { header: '작업 완료일', key: 'completed_at', width: 20 },
+      { header: '사진 개수', key: 'photo_count', width: 12 },
+      { header: '설치일', key: 'install_date', width: 15 },
+      { header: '접수일', key: 'receipt_date', width: 15 }
+    ]
+    
+    // 헤더 스타일 적용
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.style = headerStyle
+    })
+    
+    // 데이터 행 추가
+    let rowIndex = 1
+    for (const customer of customers) {
+      // 해당 고객의 A/S 기록 찾기
+      const customerRecords = asRecords.filter(r => r.customer_id === customer.id)
+      
+      if (customerRecords.length === 0) {
+        // A/S 기록이 없는 경우에도 고객 정보는 표시
+        worksheet.addRow({
+          no: rowIndex++,
+          customer_name: customer.customer_name || '',
+          phone: customer.phone || '',
+          address: customer.address || '',
+          region: customer.region || '',
+          as_result: customer.as_result || '미완료',
+          result_text: '',
+          completed_at: '',
+          photo_count: 0,
+          install_date: customer.install_date || '',
+          receipt_date: customer.receipt_date || ''
+        })
+      } else {
+        // A/S 기록이 있는 경우
+        for (const record of customerRecords) {
+          // 해당 기록의 사진 개수
+          const photoCount = asPhotos ? asPhotos.filter(p => p.as_record_id === record.id).length : 0
+          
+          worksheet.addRow({
+            no: rowIndex++,
+            customer_name: customer.customer_name || '',
+            phone: customer.phone || '',
+            address: customer.address || '',
+            region: customer.region || '',
+            as_result: record.status === 'completed' ? '완료' : '진행중',
+            result_text: record.result_text || '',
+            completed_at: record.completed_at ? new Date(record.completed_at).toLocaleString('ko-KR') : '',
+            photo_count: photoCount,
+            install_date: customer.install_date || '',
+            receipt_date: customer.receipt_date || ''
+          })
+        }
+      }
+    }
+    
+    // 데이터 행 스타일
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+          cell.alignment = { vertical: 'middle', horizontal: 'left' }
+        })
+        
+        // A/S 상태 컬럼 색상
+        const statusCell = row.getCell('as_result')
+        if (statusCell.value === '완료') {
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } }
+        } else if (statusCell.value === '진행중') {
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } }
+        }
+      }
+    })
+    
+    // Excel 파일 생성
+    const buffer = await workbook.xlsx.writeBuffer()
+    
+    // 파일명 생성 (날짜 포함)
+    const now = new Date()
+    const filename = `AS결과_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.xlsx`
+    
+    console.log('✅ Excel 파일 생성 완료:', filename)
+    console.log('📊 총 데이터 행:', rowIndex - 1)
+    
+    // 파일 다운로드 응답
+    c.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
+    
+    return c.body(buffer)
+  } catch (error) {
+    console.error('❌ Excel 내보내기 오류:', error)
+    return c.json({ success: false, message: 'Excel 내보내기 중 오류가 발생했습니다.', error: error.message }, 500)
   }
 })
 
