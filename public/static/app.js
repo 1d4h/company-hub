@@ -2734,13 +2734,19 @@ async function openASResultModal(customerId) {
       
       // 사진 미리보기 설정
       if (latestRecord.photos && latestRecord.photos.length > 0) {
-        // state.asPhotos에 기존 사진 URL 저장 (수정 시 유지하기 위해)
+        console.log('📸 기존 사진 불러오기:', latestRecord.photos.length, '개')
+        // state.asPhotos에 기존 사진 정보 저장 (완전한 정보)
         state.asPhotos = latestRecord.photos.map((photo, index) => ({
           id: photo.id || Date.now() + index,  // 고유 ID
           url: photo.url,
-          isExisting: true,
-          storageId: photo.id
+          storagePath: photo.storage_path || photo.storagePath,
+          filename: photo.filename || `photo_${index + 1}.jpg`,
+          size: photo.file_size || photo.size || 0,
+          type: photo.mime_type || photo.type || 'image/jpeg',
+          isExisting: true  // 기존 사진 표시
         }))
+        
+        console.log('✅ 기존 사진 정보:', state.asPhotos)
         
         // 미리보기 업데이트
         updateASPhotoPreview()
