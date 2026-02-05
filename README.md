@@ -107,12 +107,21 @@ pm2 restart webapp
 4. **사용자 지도 뷰 (Kakao Maps 완전 전환)**
    - ✅ **Kakao Maps 통합**: 실제 지도 렌더링
    - ✅ **위성 지도 토글**: 버튼 클릭으로 일반 ↔ 위성 지도 전환
+   - ✅ **GPS 토글 버튼**: 좌측 상단 원형 버튼으로 GPS 활성화/비활성화
    - ✅ **GPS 마커**: 빨간색 펄스 애니메이션 (80px, 3단계 링)
    - ✅ **A/S 결과 입력 시스템**:
-     - 📸 사진 촬영/업로드 (최대 10장)
+     - 📸 **사진 선택 시 미리보기** (즉시, Base64)
+     - 📤 **'완료' 버튼 클릭 시 업로드** (Supabase Storage)
+     - 🖼️ **사진 최대 10장** 업로드 가능
      - ✍️ 작업 내용 텍스트 입력
-     - 💾 임시 저장 (수정) 기능
+     - 💾 **재확인 시 사진 유지** (초록 체크 아이콘)
      - ✅ 완료 시 마커 색상 변경 (연한 회색)
+     - 🔄 **업로드 흐름**:
+       1. 사진 선택 → 즉시 미리보기 생성 (1/10, 2/10, ...)
+       2. 작업 내용 입력
+       3. '완료' 버튼 클릭 → 백그라운드 업로드
+       4. Supabase Storage에 저장 (`as-photos` 버킷)
+       5. 메타데이터 DB 저장 (`as_photos` 테이블)
    - ✅ AS 상태별 마커 색상 구분:
      - ⚪ **연한 회색**: A/S 작업 완료
      - 🟢 **초록색**: AS 완료 (수리 완료, 교체 완료 등)
@@ -159,11 +168,14 @@ pm2 restart webapp
 
 ## 🗄️ 데이터베이스 설정 (Supabase)
 
-### 설정 완료 항목
+### ✅ 설정 완료 항목
 - ✅ Supabase 클라이언트 라이브러리 설치
 - ✅ 데이터베이스 스키마 SQL 파일 작성
 - ✅ 클라이언트 설정 파일 작성
 - ✅ 설정 가이드 문서 작성
+- ✅ **RLS (Row Level Security) 정책 설정**
+- ✅ **Storage 버킷 정책 설정**
+- ✅ **A/S 사진 업로드 기능 완료**
 
 ### 필요한 작업
 1. **Supabase 프로젝트 생성** (사용자가 직접 수행)
@@ -175,10 +187,75 @@ pm2 restart webapp
    # .env 파일 생성
    SUPABASE_URL=https://your-project.supabase.co
    SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    ```
 
 3. **데이터베이스 스키마 생성**
    - Supabase SQL Editor에서 `supabase-schema.sql` 실행
+
+4. **🔒 RLS (Row Level Security) 설정** ⭐ **중요!**
+   ```sql
+   -- 1️⃣ RLS 활성화
+   ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE public.as_records ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE public.as_photos ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE public.upload_sessions ENABLE ROW LEVEL SECURITY;
+
+   -- 2️⃣ authenticated 사용자 정책
+   CREATE POLICY "Allow authenticated users to read customers" 
+   ON public.customers FOR SELECT TO authenticated USING (true);
+
+   CREATE POLICY "Allow authenticated users to update customers" 
+   ON public.customers FOR UPDATE TO authenticated USING (true);
+
+   CREATE POLICY "Allow authenticated users to insert as_records" 
+   ON public.as_records FOR INSERT TO authenticated WITH CHECK (true);
+
+   CREATE POLICY "Allow authenticated users to insert as_photos" 
+   ON public.as_photos FOR INSERT TO authenticated WITH CHECK (true);
+
+   -- 3️⃣ service_role 전체 권한
+   CREATE POLICY "Allow service role full access to customers" 
+   ON public.customers FOR ALL TO service_role USING (true);
+
+   CREATE POLICY "Allow service role full access to as_records" 
+   ON public.as_records FOR ALL TO service_role USING (true);
+
+   CREATE POLICY "Allow service role full access to as_photos" 
+   ON public.as_photos FOR ALL TO service_role USING (true);
+   ```
+
+5. **📦 Storage 버킷 생성 및 정책 설정**
+   
+   **버킷 생성:**
+   - Supabase Dashboard → Storage → New Bucket
+   - Name: `as-photos`
+   - Public: ✅ **Enable (읽기만 공개)**
+   - File size limit: `10485760` (10MB)
+
+   **Storage 정책 설정:**
+   ```sql
+   -- 1️⃣ 읽기: 모두 허용 (Public)
+   CREATE POLICY "Allow public read access" 
+   ON storage.objects FOR SELECT TO public 
+   USING (bucket_id = 'as-photos');
+
+   -- 2️⃣ 업로드: authenticated 허용
+   CREATE POLICY "Allow authenticated uploads" 
+   ON storage.objects FOR INSERT TO authenticated 
+   WITH CHECK (bucket_id = 'as-photos');
+
+   -- 3️⃣ 삭제: authenticated 허용
+   CREATE POLICY "Allow authenticated deletes" 
+   ON storage.objects FOR DELETE TO authenticated 
+   USING (bucket_id = 'as-photos');
+
+   -- 4️⃣ Service Role: 모든 권한
+   CREATE POLICY "Allow service role full access" 
+   ON storage.objects FOR ALL TO service_role 
+   USING (bucket_id = 'as-photos');
+   ```
 
 ### 데이터베이스 구조
 - **users**: 사용자 계정 (bcrypt 암호화)
@@ -370,6 +447,9 @@ git reset --hard 8ff7d44             # 특정 커밋으로 복원
 - `POST /api/customers/batch-delete` - 고객 일괄 삭제
 - `POST /api/customers/validate` - Excel 데이터 검증
 - `POST /api/customers/batch-upload` - Excel 데이터 일괄 업로드
+- `POST /api/customers/as-result` - A/S 결과 저장
+- `GET /api/customers/:id/as-result` - A/S 결과 조회
+- `POST /api/customers/as-photo/upload` - A/S 사진 업로드 (Supabase Storage)
 
 ### 지오코딩 (T Map API)
 - `POST /api/geocode` - 주소를 좌표로 변환
@@ -396,6 +476,91 @@ git reset --hard 8ff7d44             # 특정 커밋으로 복원
 18. ⏳ JWT 토큰 인증
 
 ## 🐛 문제 해결
+
+### ⚠️ Supabase RLS 에러가 발생하는 경우
+**증상**: Security Advisor에 "Policy Exists RLS Disabled" 경고
+
+**원인**: Row Level Security(RLS)가 비활성화되어 있음
+
+**해결 방법**:
+1. Supabase Dashboard → SQL Editor
+2. 다음 SQL 실행:
+```sql
+-- RLS 활성화
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.as_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.as_photos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.upload_sessions ENABLE ROW LEVEL SECURITY;
+
+-- 정책 추가 (위의 "데이터베이스 설정" 섹션 참조)
+```
+3. Security Advisor에서 경고 제거 확인
+
+### 📸 사진 업로드가 실패하는 경우
+**증상**: "사진 업로드 실패" 또는 "Storage 버킷이 없습니다" 메시지
+
+**원인**: 
+1. `as-photos` 버킷이 존재하지 않음
+2. Storage 정책이 설정되지 않음
+3. RLS가 활성화되지 않음
+
+**해결 방법**:
+1. **버킷 생성**:
+   - Supabase Dashboard → Storage → New Bucket
+   - Name: `as-photos`
+   - Public: ✅ Enable
+   - File size limit: `10485760` (10MB)
+
+2. **Storage 정책 설정** (SQL Editor):
+```sql
+-- Public 읽기 허용
+CREATE POLICY "Allow public read access" 
+ON storage.objects FOR SELECT TO public 
+USING (bucket_id = 'as-photos');
+
+-- authenticated 업로드 허용
+CREATE POLICY "Allow authenticated uploads" 
+ON storage.objects FOR INSERT TO authenticated 
+WITH CHECK (bucket_id = 'as-photos');
+
+-- service_role 전체 권한
+CREATE POLICY "Allow service role full access" 
+ON storage.objects FOR ALL TO service_role 
+USING (bucket_id = 'as-photos');
+```
+
+3. **RLS 활성화 확인** (위의 "Supabase RLS 에러" 참조)
+
+4. **테스트**:
+   - 로그인 → 마커 클릭 → A/S 결과
+   - 사진 선택 → 미리보기 확인
+   - '완료' 버튼 → 업로드 성공 확인
+   - Supabase Storage에서 파일 확인
+
+### 📷 사진 미리보기는 되지만 업로드가 안 되는 경우
+**증상**: 사진 선택 시 미리보기는 표시되지만 '완료' 버튼 클릭 후 업로드 실패
+
+**원인**:
+1. SERVICE_ROLE_KEY가 설정되지 않음
+2. Storage 정책이 누락됨
+
+**해결 방법**:
+1. `.env` 파일 확인:
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key  # ⭐ 필수!
+```
+
+2. 서버 재시작:
+```bash
+pm2 restart webapp
+```
+
+3. 콘솔 로그 확인:
+   - "📤 사진 1/3 업로드 중..."
+   - "✅ 사진 1 업로드 성공: storage/path"
 
 ### Kakao Maps가 표시되지 않는 경우
 1. 브라우저 캐시 완전 삭제 (Ctrl + Shift + R)
