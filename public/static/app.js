@@ -884,10 +884,7 @@ function renderUserMap() {
               
               <!-- 버튼 -->
               <div class="flex gap-3">
-                <button onclick="saveASResultDraft()" class="flex-1 px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 active:bg-gray-700 transition">
-                  <i class="fas fa-save mr-2"></i>수정
-                </button>
-                <button onclick="completeASResult()" class="flex-1 px-6 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 active:bg-green-700 transition">
+                <button onclick="completeASResult()" class="w-full px-6 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 active:bg-green-700 transition">
                   <i class="fas fa-check-circle mr-2"></i>완료
                 </button>
               </div>
@@ -1260,10 +1257,11 @@ function initKakaoMap() {
     
     let centerLat, centerLng, level
     
-    // 지도 중심 결정 우선순위: 1) GPS 위치 (사용자 현재 위치) 2) 가장 밀집된 고객 지역 3) 서울 중심
+    // 지도 중심 결정 우선순위: 1) 가장 밀집된 고객 지역 2) 서울 중심
+    // 관리자는 GPS 사용 안 함 (사용자 계정만)
     
-    // 1순위: GPS 위치 확인 및 사용
-    if (navigator.geolocation) {
+    // 1순위: GPS 위치 확인 및 사용 (일반 사용자만)
+    if (navigator.geolocation && state.currentUser && state.currentUser.role !== 'admin') {
       console.log('📍 GPS 위치 확인 중...')
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -2755,63 +2753,6 @@ function removeASPhoto(photoId) {
   }
 }
 
-// A/S 결과 임시 저장 (수정)
-async function saveASResultDraft() {
-  if (!state.currentASCustomerId) {
-    showToast('고객 정보를 찾을 수 없습니다', 'error')
-    return
-  }
-  
-  const textArea = document.getElementById('asResultText')
-  const resultText = textArea ? textArea.value.trim() : ''
-  
-  if (!resultText && state.asPhotos.length === 0) {
-    showToast('작업 내용 또는 사진을 입력해주세요', 'error')
-    return
-  }
-  
-  console.log('💾 A/S 결과 임시 저장...')
-  console.log('- 고객 ID:', state.currentASCustomerId)
-  console.log('- 사진 개수:', state.asPhotos.length)
-  console.log('- 텍스트:', resultText)
-  
-  try {
-    // API 요청 (as_result 상태는 'draft'로 저장)
-    const response = await fetch('/api/customers/as-result', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        customerId: state.currentASCustomerId,
-        resultText: resultText,
-        photos: state.asPhotos,
-        status: 'draft'  // 임시 저장 상태
-      })
-    })
-    
-    if (!response.ok) {
-      throw new Error('A/S 결과 임시 저장 실패')
-    }
-    
-    const data = await response.json()
-    console.log('✅ A/S 결과 임시 저장 성공:', data)
-    
-    // 고객 정보 업데이트 (메모리)
-    const customer = state.customers.find(c => String(c.id) === String(state.currentASCustomerId))
-    if (customer) {
-      customer.as_result_text = resultText
-      customer.as_result_photos = [...state.asPhotos]
-      customer.as_result_status = 'draft'  // 임시 저장 상태
-    }
-    
-    showToast('임시 저장되었습니다 (수정 가능)', 'success')
-  } catch (error) {
-    console.error('❌ A/S 결과 임시 저장 실패:', error)
-    showToast('임시 저장에 실패했습니다', 'error')
-  }
-}
-
 // A/S 결과 완료
 async function completeASResult() {
   if (!state.currentASCustomerId) {
@@ -3058,7 +2999,6 @@ window.openASResultModal = openASResultModal
 window.closeASResultModal = closeASResultModal
 window.handleASPhotoUpload = handleASPhotoUpload
 window.removeASPhoto = removeASPhoto
-window.saveASResultDraft = saveASResultDraft
 window.completeASResult = completeASResult
 window.logout = logout
 window.switchToUserView = switchToUserView
