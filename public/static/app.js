@@ -2795,7 +2795,7 @@ function closeASResultModal() {
   state.asPhotos = []
 }
 
-// A/S 사진 업로드 처리 (즉시 Supabase Storage에 업로드)
+// A/S 사진 업로드 처리 (미리보기만, 실제 업로드는 완료 시)
 async function handleASPhotoUpload(event) {
   const files = event.target.files
   
@@ -2812,25 +2812,9 @@ async function handleASPhotoUpload(event) {
     return
   }
   
-  console.log(`📷 사진 ${files.length}개 즉시 업로드 시작...`)
+  console.log(`📷 사진 ${files.length}개 선택됨 (미리보기 생성 중...)`)
   
-  // 고객 ID 확인
-  if (!state.currentASCustomerId) {
-    showToast('고객 정보를 찾을 수 없습니다', 'error')
-    return
-  }
-  
-  // Supabase 클라이언트 확인
-  if (!window.supabaseClient) {
-    console.error('❌ Supabase 클라이언트가 초기화되지 않았습니다')
-    showToast('시스템 오류: Supabase 클라이언트 없음', 'error')
-    return
-  }
-  
-  console.log('✅ Supabase 클라이언트 확인 완료')
-  console.log('📋 고객 ID:', state.currentASCustomerId)
-  
-  // 각 파일을 서버를 통해 Supabase Storage에 업로드
+  // 각 파일을 Base64로 변환하여 미리보기만 생성
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
     
@@ -2840,7 +2824,7 @@ async function handleASPhotoUpload(event) {
     }
     
     try {
-      console.log(`📤 사진 ${i + 1}/${files.length} 업로드 중: ${file.name}`)
+      console.log(`📤 사진 ${i + 1}/${files.length} 미리보기 생성 중: ${file.name}`)
       
       // FileReader로 Base64 변환
       const dataUrl = await new Promise((resolve, reject) => {
@@ -2850,44 +2834,16 @@ async function handleASPhotoUpload(event) {
         reader.readAsDataURL(file)
       })
       
-      console.log(`📦 사진 ${i + 1} Base64 변환 완료 (${file.size} bytes)`)
+      console.log(`✅ 사진 ${i + 1} 미리보기 준비 완료 (${file.size} bytes)`)
       
-      // 서버 API를 통해 업로드
-      const response = await fetch('/api/customers/as-photo/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          customerId: state.currentASCustomerId,
-          photo: {
-            dataUrl: dataUrl,
-            filename: file.name,
-            size: file.size,
-            type: file.type
-          }
-        })
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok || !result.success) {
-        console.error(`❌ 사진 ${i + 1} 업로드 실패:`, result)
-        showToast(`사진 업로드 실패: ${result.message || file.name}`, 'error')
-        continue
-      }
-      
-      console.log(`✅ 사진 ${i + 1} 업로드 성공:`, result.storagePath)
-      
-      // state.asPhotos에 추가 (Storage URL 사용)
+      // state.asPhotos에 추가 (Base64 저장, 완료 시 업로드)
       const photoData = {
         id: Date.now() + i,
-        url: result.url,
-        storagePath: result.storagePath,
-        filename: result.filename,
-        size: result.size,
-        type: result.type,
-        isExisting: false  // 새로 업로드된 사진
+        dataUrl: dataUrl,  // Base64 데이터
+        filename: file.name,
+        size: file.size,
+        type: file.type,
+        isExisting: false  // 새로 추가된 사진
       }
       
       state.asPhotos.push(photoData)
@@ -2902,8 +2858,8 @@ async function handleASPhotoUpload(event) {
   }
   
   if (state.asPhotos.length > currentCount) {
-    const uploadedCount = state.asPhotos.length - currentCount
-    showToast(`사진 ${uploadedCount}개가 업로드되었습니다`, 'success')
+    const addedCount = state.asPhotos.length - currentCount
+    showToast(`사진 ${addedCount}개가 추가되었습니다`, 'success')
   }
   
   // input 초기화
@@ -3004,26 +2960,82 @@ async function completeASResult() {
   closeCustomerDetail()
   
   // 성공 메시지 (즉시)
-  showToast('A/S 작업이 완료되었습니다', 'success')
+  showToast('A/S 작업 저장 중...', 'info')
   
-  // 백그라운드에서 메타데이터 저장 (2단계: 비동기 처리)
-  // 사진은 이미 Storage에 업로드됨
+  // 백그라운드에서 사진 업로드 + 메타데이터 저장 (2단계: 비동기 처리)
   setTimeout(async () => {
     try {
-      console.log('📤 백그라운드에서 메타데이터 저장 중...')
+      console.log('📤 백그라운드에서 사진 업로드 및 메타데이터 저장 중...')
       
-      // 업로드된 사진 정보만 전송 (이미 Storage에 있음)
-      const uploadedPhotos = state.asPhotos.map(photo => ({
-        storagePath: photo.storagePath,
-        url: photo.url,
-        filename: photo.filename,
-        size: photo.size,
-        type: photo.type
-      }))
+      // 1️⃣ 새로 추가된 사진 업로드 (dataUrl이 있는 사진)
+      const uploadedPhotos = []
       
-      console.log(`📸 저장할 사진 메타데이터: ${uploadedPhotos.length}개`)
+      for (let i = 0; i < state.asPhotos.length; i++) {
+        const photo = state.asPhotos[i]
+        
+        // 이미 업로드된 사진 (url이 있음)
+        if (photo.url && !photo.dataUrl) {
+          uploadedPhotos.push({
+            storagePath: photo.storagePath,
+            url: photo.url,
+            filename: photo.filename,
+            size: photo.size,
+            type: photo.type
+          })
+          console.log(`✅ 기존 사진 ${i + 1}: ${photo.filename}`)
+          continue
+        }
+        
+        // 새로 추가된 사진 (dataUrl만 있음) - 업로드 필요
+        if (photo.dataUrl) {
+          console.log(`📤 사진 ${i + 1}/${state.asPhotos.length} 업로드 중: ${photo.filename}`)
+          
+          try {
+            // 서버 API를 통해 업로드
+            const response = await fetch('/api/customers/as-photo/upload', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                customerId: customerId,
+                photo: {
+                  dataUrl: photo.dataUrl,
+                  filename: photo.filename,
+                  size: photo.size,
+                  type: photo.type
+                }
+              })
+            })
+            
+            const result = await response.json()
+            
+            if (!response.ok || !result.success) {
+              console.error(`❌ 사진 ${i + 1} 업로드 실패:`, result)
+              showToast(`사진 업로드 실패: ${photo.filename}`, 'error')
+              continue
+            }
+            
+            console.log(`✅ 사진 ${i + 1} 업로드 성공:`, result.storagePath)
+            
+            uploadedPhotos.push({
+              storagePath: result.storagePath,
+              url: result.url,
+              filename: result.filename,
+              size: result.size,
+              type: result.type
+            })
+            
+          } catch (error) {
+            console.error(`❌ 사진 ${i + 1} 업로드 오류:`, error)
+            showToast(`사진 업로드 실패: ${photo.filename}`, 'error')
+          }
+        }
+      }
       
-      // 서버에 메타데이터 저장
+      console.log(`📸 업로드 완료된 사진: ${uploadedPhotos.length}개`)
+      
+      // 2️⃣ 서버에 메타데이터 저장
       const response = await fetch('/api/customers/as-result', {
         method: 'POST',
         headers: {
@@ -3043,6 +3055,8 @@ async function completeASResult() {
       
       const data = await response.json()
       console.log('✅ 메타데이터 저장 성공:', data)
+      
+      showToast('A/S 작업이 완료되었습니다', 'success')
       
     } catch (error) {
       console.error('❌ 백그라운드 저장 실패:', error)
