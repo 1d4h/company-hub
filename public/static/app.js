@@ -2586,22 +2586,22 @@ async function openASResultModal(customerId) {
       }
       
       // 사진 미리보기 설정
-      if (photoPreview && latestRecord.photos && latestRecord.photos.length > 0) {
-        photoPreview.innerHTML = latestRecord.photos.map((photo, index) => `
-          <div class="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-            <img src="${photo.url}" alt="A/S 사진 ${index + 1}" class="w-full h-full object-cover">
-            <div class="absolute top-2 right-2 bg-white rounded-full px-2 py-1 text-xs font-semibold text-gray-700 shadow">
-              ${index + 1}
-            </div>
-          </div>
-        `).join('')
-        
+      if (latestRecord.photos && latestRecord.photos.length > 0) {
         // state.asPhotos에 기존 사진 URL 저장 (수정 시 유지하기 위해)
-        state.asPhotos = latestRecord.photos.map(photo => ({
+        state.asPhotos = latestRecord.photos.map((photo, index) => ({
+          id: photo.id || Date.now() + index,  // 고유 ID
           url: photo.url,
           isExisting: true,
           storageId: photo.id
         }))
+        
+        // 미리보기 업데이트
+        updateASPhotoPreview()
+      } else {
+        state.asPhotos = []
+        if (photoPreview) {
+          photoPreview.innerHTML = ''
+        }
       }
     } else {
       console.log('ℹ️ 기존 A/S 결과 없음 - 새로 작성')
@@ -2717,17 +2717,29 @@ function updateASPhotoPreview() {
     return
   }
   
-  photoPreview.innerHTML = state.asPhotos.map((photo, index) => `
+  photoPreview.innerHTML = state.asPhotos.map((photo, index) => {
+    // 기존 사진 (URL)과 새 사진 (dataUrl) 구분
+    const imageUrl = photo.url || photo.dataUrl
+    const isExisting = photo.isExisting || false
+    
+    return `
     <div class="relative aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
-      <img src="${photo.dataUrl}" alt="사진 ${index + 1}" class="w-full h-full object-cover">
+      <img src="${imageUrl}" alt="사진 ${index + 1}" class="w-full h-full object-cover">
+      ${!isExisting ? `
       <button onclick="removeASPhoto(${photo.id})" class="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full hover:bg-red-600 transition flex items-center justify-center">
         <i class="fas fa-times text-xs"></i>
       </button>
+      ` : `
+      <div class="absolute top-1 right-1 bg-green-500 text-white rounded-full px-2 py-1 text-xs">
+        <i class="fas fa-check"></i>
+      </div>
+      `}
       <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center py-1">
         ${index + 1}/10
       </div>
     </div>
-  `).join('')
+    `
+  }).join('')
   
   console.log(`📷 미리보기 업데이트: ${state.asPhotos.length}장`)
 }
@@ -2825,53 +2837,63 @@ async function completeASResult() {
   console.log('- 사진 개수:', state.asPhotos.length)
   console.log('- 텍스트:', resultText)
   
-  try {
-    // API 요청
-    const response = await fetch('/api/customers/as-result', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        customerId: state.currentASCustomerId,
-        resultText: resultText,
-        photos: state.asPhotos,
-        completedAt: new Date().toISOString()
-      })
-    })
-    
-    if (!response.ok) {
-      throw new Error('A/S 결과 저장 실패')
-    }
-    
-    const data = await response.json()
-    console.log('✅ A/S 결과 저장 성공:', data)
-    
-    // 고객 정보 업데이트
-    const customer = state.customers.find(c => String(c.id) === String(state.currentASCustomerId))
-    if (customer) {
-      customer.as_result_text = resultText
-      customer.as_result_photos = [...state.asPhotos]
-      customer.as_result = 'completed'  // 완료 상태
-      customer.as_result_status = 'completed'
-      customer.as_completed_at = new Date().toISOString()
-    }
-    
-    // 마커 색상 업데이트 (연한 회색)
-    updateMarkerColor(state.currentASCustomerId, 'completed')
-    
-    // 모달 닫기
-    closeASResultModal()
-    
-    // 고객 상세 정보 패널도 닫기
-    closeCustomerDetail()
-    
-    showToast('A/S 작업이 완료되었습니다', 'success')
-    
-  } catch (error) {
-    console.error('❌ A/S 결과 저장 실패:', error)
-    showToast('A/S 결과 저장에 실패했습니다', 'error')
+  // 즉시 UI 업데이트 (1단계: 빠른 피드백)
+  const customerId = state.currentASCustomerId
+  
+  // 고객 정보 업데이트
+  const customer = state.customers.find(c => String(c.id) === String(customerId))
+  if (customer) {
+    customer.as_result_text = resultText
+    customer.as_result_photos = [...state.asPhotos]
+    customer.as_result = 'completed'  // 완료 상태
+    customer.as_result_status = 'completed'
+    customer.as_completed_at = new Date().toISOString()
   }
+  
+  // 마커 색상 업데이트 (즉시 반영)
+  updateMarkerColor(customerId, 'completed')
+  
+  // 모달 닫기 (즉시)
+  closeASResultModal()
+  
+  // 고객 상세 정보 패널도 닫기
+  closeCustomerDetail()
+  
+  // 성공 메시지 (즉시)
+  showToast('A/S 작업이 완료되었습니다', 'success')
+  
+  // 백그라운드에서 API 요청 (2단계: 비동기 저장)
+  // 사용자는 기다리지 않고 바로 다음 작업 가능
+  setTimeout(async () => {
+    try {
+      console.log('📤 백그라운드에서 Supabase에 저장 중...')
+      
+      const response = await fetch('/api/customers/as-result', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          customerId: customerId,
+          resultText: resultText,
+          photos: state.asPhotos.filter(p => !p.isExisting),  // 새 사진만 전송
+          completedAt: new Date().toISOString()
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('A/S 결과 저장 실패')
+      }
+      
+      const data = await response.json()
+      console.log('✅ Supabase 저장 성공:', data)
+      
+    } catch (error) {
+      console.error('❌ 백그라운드 저장 실패:', error)
+      // 오류가 있어도 사용자 경험에는 영향 없음
+      // 로컬 상태는 이미 업데이트됨
+    }
+  }, 100)  // 100ms 후 백그라운드 저장 시작
 }
 
 // 마커 색상 업데이트
