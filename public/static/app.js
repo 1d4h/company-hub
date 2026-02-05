@@ -2844,7 +2844,6 @@ async function completeASResult() {
   const customer = state.customers.find(c => String(c.id) === String(customerId))
   if (customer) {
     customer.as_result_text = resultText
-    customer.as_result_photos = [...state.asPhotos]
     customer.as_result = 'completed'  // 완료 상태
     customer.as_result_status = 'completed'
     customer.as_completed_at = new Date().toISOString()
@@ -2860,14 +2859,79 @@ async function completeASResult() {
   closeCustomerDetail()
   
   // 성공 메시지 (즉시)
-  showToast('A/S 작업이 완료되었습니다', 'success')
+  showToast('A/S 작업이 완료되었습니다. 사진을 업로드 중입니다...', 'success')
   
-  // 백그라운드에서 API 요청 (2단계: 비동기 저장)
-  // 사용자는 기다리지 않고 바로 다음 작업 가능
+  // 백그라운드에서 사진 업로드 및 저장 (2단계: 비동기 처리)
   setTimeout(async () => {
     try {
-      console.log('📤 백그라운드에서 Supabase에 저장 중...')
+      console.log('📤 백그라운드에서 사진 업로드 및 저장 중...')
       
+      // 임시 record ID 생성 (나중에 실제 ID로 교체)
+      const tempRecordId = Date.now()
+      
+      // 새로운 사진만 필터링 (기존 사진 제외)
+      const newPhotos = state.asPhotos.filter(p => !p.isExisting && p.dataUrl)
+      
+      console.log(`📸 업로드할 사진: ${newPhotos.length}개`)
+      
+      // 사진을 Supabase Storage에 직접 업로드
+      const uploadedPhotos = []
+      
+      for (let i = 0; i < newPhotos.length; i++) {
+        const photo = newPhotos[i]
+        
+        try {
+          console.log(`📷 사진 ${i + 1}/${newPhotos.length} 업로드 중: ${photo.filename}`)
+          
+          // Base64를 Blob으로 변환
+          const base64Data = photo.dataUrl.split(',')[1]
+          const binaryData = atob(base64Data)
+          const bytes = new Uint8Array(binaryData.length)
+          for (let j = 0; j < binaryData.length; j++) {
+            bytes[j] = binaryData.charCodeAt(j)
+          }
+          const blob = new Blob([bytes], { type: photo.type })
+          
+          // Storage 경로 생성
+          const timestamp = Date.now()
+          const randomStr = Math.random().toString(36).substring(7)
+          const storagePath = `${customerId}/${timestamp}_${randomStr}_${photo.filename}`
+          
+          // Supabase Storage에 업로드
+          const { data: uploadData, error: uploadError } = await window.supabaseClient.storage
+            .from('as-photos')
+            .upload(storagePath, blob, {
+              contentType: photo.type,
+              upsert: false
+            })
+          
+          if (uploadError) {
+            console.error(`❌ 사진 ${i + 1} 업로드 실패:`, uploadError)
+            continue
+          }
+          
+          console.log(`✅ 사진 ${i + 1} 업로드 성공:`, storagePath)
+          
+          // Public URL 가져오기
+          const { data: urlData } = window.supabaseClient.storage
+            .from('as-photos')
+            .getPublicUrl(storagePath)
+          
+          uploadedPhotos.push({
+            storagePath: storagePath,
+            url: urlData.publicUrl,
+            filename: photo.filename,
+            size: photo.size,
+            type: photo.type
+          })
+        } catch (photoError) {
+          console.error(`❌ 사진 ${i + 1} 처리 오류:`, photoError)
+        }
+      }
+      
+      console.log(`✅ 사진 업로드 완료: ${uploadedPhotos.length}/${newPhotos.length}개`)
+      
+      // 서버에 메타데이터 저장 (Storage 경로만 전송)
       const response = await fetch('/api/customers/as-result', {
         method: 'POST',
         headers: {
@@ -2876,7 +2940,7 @@ async function completeASResult() {
         body: JSON.stringify({
           customerId: customerId,
           resultText: resultText,
-          photos: state.asPhotos.filter(p => !p.isExisting),  // 새 사진만 전송
+          uploadedPhotos: uploadedPhotos,  // Storage에 이미 업로드된 사진 정보
           completedAt: new Date().toISOString()
         })
       })
@@ -2886,14 +2950,20 @@ async function completeASResult() {
       }
       
       const data = await response.json()
-      console.log('✅ Supabase 저장 성공:', data)
+      console.log('✅ 메타데이터 저장 성공:', data)
+      
+      // 고객 정보에 업로드된 사진 URL 저장
+      if (customer) {
+        customer.as_result_photos = uploadedPhotos
+      }
+      
+      showToast(`사진 ${uploadedPhotos.length}개 업로드 완료`, 'success')
       
     } catch (error) {
       console.error('❌ 백그라운드 저장 실패:', error)
-      // 오류가 있어도 사용자 경험에는 영향 없음
-      // 로컬 상태는 이미 업데이트됨
+      showToast('사진 업로드 중 오류가 발생했습니다', 'error')
     }
-  }, 100)  // 100ms 후 백그라운드 저장 시작
+  }, 100)  // 100ms 후 백그라운드 업로드 시작
 }
 
 // 마커 색상 업데이트

@@ -456,12 +456,12 @@ app.post('/api/customers/validate', async (c) => {
 // ============================================
 app.post('/api/customers/as-result', async (c) => {
   try {
-    const { customerId, resultText, photos, completedAt } = await c.req.json()
+    const { customerId, resultText, uploadedPhotos, completedAt } = await c.req.json()
     
     console.log('📋 A/S 결과 저장 요청:', {
       customerId,
       resultText: resultText?.substring(0, 50) + '...',
-      photoCount: photos?.length || 0,
+      photoCount: uploadedPhotos?.length || 0,
       completedAt
     })
     
@@ -484,51 +484,28 @@ app.post('/api/customers/as-result', async (c) => {
     
     console.log('✅ A/S 기록 저장 성공:', asRecord.id)
     
-    // 2. 사진 업로드 (Supabase Storage)
-    if (photos && photos.length > 0) {
-      for (const photo of photos) {
-        try {
-          // Base64를 Blob으로 변환
-          const base64Data = photo.dataUrl.split(',')[1]
-          const buffer = Buffer.from(base64Data, 'base64')
-          
-          // Storage에 업로드
-          const storagePath = `${asRecord.id}/${photo.filename}`
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('as-photos')
-            .upload(storagePath, buffer, {
-              contentType: photo.type,
-              upsert: false
-            })
-          
-          if (uploadError) {
-            console.error('❌ 사진 업로드 오류:', uploadError)
-            continue
-          }
-          
-          console.log('✅ 사진 업로드 성공:', storagePath)
-          
-          // 3. as_photos 테이블에 메타데이터 저장
-          const { error: photoError } = await supabase
-            .from('as_photos')
-            .insert([{
-              as_record_id: asRecord.id,
-              storage_path: storagePath,
-              filename: photo.filename,
-              file_size: photo.size,
-              mime_type: photo.type
-            }])
-          
-          if (photoError) {
-            console.error('❌ 사진 메타데이터 저장 오류:', photoError)
-          }
-        } catch (photoErr) {
-          console.error('❌ 사진 처리 오류:', photoErr)
-        }
+    // 2. as_photos 테이블에 메타데이터 저장 (이미 Storage에 업로드된 사진)
+    if (uploadedPhotos && uploadedPhotos.length > 0) {
+      const photoRecords = uploadedPhotos.map(photo => ({
+        as_record_id: asRecord.id,
+        storage_path: photo.storagePath,
+        filename: photo.filename,
+        file_size: photo.size,
+        mime_type: photo.type
+      }))
+      
+      const { error: photoError } = await supabase
+        .from('as_photos')
+        .insert(photoRecords)
+      
+      if (photoError) {
+        console.error('❌ 사진 메타데이터 저장 오류:', photoError)
+      } else {
+        console.log(`✅ 사진 메타데이터 저장 성공: ${photoRecords.length}개`)
       }
     }
     
-    // 4. customers 테이블의 as_result 상태 업데이트
+    // 3. customers 테이블의 as_result 상태 업데이트
     const { error: updateError } = await supabase
       .from('customers')
       .update({ as_result: 'completed' })
@@ -696,6 +673,17 @@ app.get('/', (c) => {
         <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=c933c69ba4e0228895438c6a8c327e74&libraries=services"></script>
         <!-- SheetJS for Excel file parsing -->
         <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+        <!-- Supabase JS Client -->
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script>
+          // Supabase 클라이언트 초기화
+          const { createClient } = supabase
+          window.supabaseClient = createClient(
+            'https://zgeunzvwozsfzwxasdee.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnZXVuenZ3b3pzZnp3eGFzZGVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMDA2OTgsImV4cCI6MjA4NTc3NjY5OH0.tzhVRxNdd2a-I702YeBpVrWBUWfebdah6oi77GpMx2g'
+          )
+          console.log('✅ Supabase 클라이언트 초기화 완료')
+        </script>
     </head>
     <body class="bg-gray-50">
         <div id="app"></div>
