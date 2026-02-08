@@ -513,27 +513,74 @@ function renderLogin() {
           카카오 로그인
         </button>
         
-        <button 
-          onclick="renderRegister()" 
-          class="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold"
-        >
-          <i class="fas fa-user-plus mr-2"></i>회원가입
-        </button>
-        
-        <div class="mt-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-600 text-center">
-          <p class="text-xs">계정이 없으신가요? 회원가입 후 관리자 승인이 필요합니다.</p>
+        <!-- 아이디 저장 & 자동 로그인 -->
+        <div class="mt-6 flex items-center justify-between text-sm">
+          <label class="flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              id="saveUsername" 
+              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span class="ml-2 text-gray-700">아이디 저장</span>
+          </label>
+          
+          <label class="flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              id="autoLogin" 
+              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span class="ml-2 text-gray-700">자동 로그인</span>
+          </label>
         </div>
       </div>
     </div>
   `
   
+  // 저장된 아이디 불러오기
+  const savedUsername = localStorage.getItem('savedUsername')
+  if (savedUsername) {
+    document.getElementById('username').value = savedUsername
+    document.getElementById('saveUsername').checked = true
+  }
+  
+  // 자동 로그인 체크 상태 불러오기
+  const autoLoginEnabled = localStorage.getItem('autoLoginEnabled') === 'true'
+  if (autoLoginEnabled) {
+    document.getElementById('autoLogin').checked = true
+  }
+  
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault()
     const username = document.getElementById('username').value
     const password = document.getElementById('password').value
+    const saveUsername = document.getElementById('saveUsername').checked
+    const autoLogin = document.getElementById('autoLogin').checked
+    
+    // 아이디 저장 처리
+    if (saveUsername) {
+      localStorage.setItem('savedUsername', username)
+    } else {
+      localStorage.removeItem('savedUsername')
+    }
+    
+    // 자동 로그인 설정 저장
+    localStorage.setItem('autoLoginEnabled', autoLogin)
     
     const success = await login(username, password)
     if (success) {
+      // 자동 로그인 활성화 시 암호화된 토큰 저장
+      if (autoLogin) {
+        const autoLoginToken = btoa(JSON.stringify({
+          username,
+          password,
+          timestamp: Date.now()
+        }))
+        localStorage.setItem('autoLoginToken', autoLoginToken)
+      } else {
+        localStorage.removeItem('autoLoginToken')
+      }
+      
       showToast('로그인 성공!', 'success')
       if (state.currentUser.role === 'admin') {
         renderAdminDashboard()
@@ -1823,6 +1870,12 @@ function renderCustomerTable() {
 function logout() {
   // 알림 폴링 중지
   stopNotificationPolling()
+  
+  // 자동 로그인이 활성화되지 않은 경우에만 토큰 삭제
+  const autoLoginEnabled = localStorage.getItem('autoLoginEnabled') === 'true'
+  if (!autoLoginEnabled) {
+    localStorage.removeItem('autoLoginToken')
+  }
   
   clearSession()
   showToast('로그아웃 되었습니다', 'info')
@@ -3823,7 +3876,53 @@ function initApp() {
       renderUserMapView()
     }
   } else {
-    console.log('ℹ️ 세션 없음 - 로그인 화면 표시')
+    console.log('ℹ️ 세션 없음 - 자동 로그인 확인 중...')
+    
+    // 자동 로그인 시도
+    const autoLoginToken = localStorage.getItem('autoLoginToken')
+    const autoLoginEnabled = localStorage.getItem('autoLoginEnabled') === 'true'
+    
+    if (autoLoginEnabled && autoLoginToken) {
+      try {
+        const decoded = JSON.parse(atob(autoLoginToken))
+        const { username, password, timestamp } = decoded
+        
+        // 토큰이 30일 이내인지 확인 (30일 = 2592000000ms)
+        const tokenAge = Date.now() - timestamp
+        if (tokenAge < 2592000000) {
+          console.log('🔄 자동 로그인 시도 중...')
+          
+          // 로딩 화면 표시
+          app.innerHTML = '<div style="padding: 50px; text-align: center; font-size: 24px;">자동 로그인 중...</div>'
+          
+          // 자동 로그인 실행
+          login(username, password).then(success => {
+            if (success) {
+              console.log('✅ 자동 로그인 성공')
+              if (state.currentUser.role === 'admin') {
+                renderAdminDashboard()
+              } else {
+                renderUserMapView()
+              }
+            } else {
+              console.log('❌ 자동 로그인 실패 - 로그인 화면 표시')
+              localStorage.removeItem('autoLoginToken')
+              renderLogin()
+            }
+          })
+          return
+        } else {
+          console.log('⏰ 자동 로그인 토큰 만료 (30일 경과)')
+          localStorage.removeItem('autoLoginToken')
+        }
+      } catch (error) {
+        console.error('❌ 자동 로그인 토큰 파싱 실패:', error)
+        localStorage.removeItem('autoLoginToken')
+      }
+    }
+    
+    // 자동 로그인 실패 또는 비활성화 시 로그인 화면 표시
+    console.log('ℹ️ 로그인 화면 표시')
     
     // 테스트: 직접 HTML 삽입
     app.innerHTML = '<div style="padding: 50px; text-align: center; font-size: 24px;">테스트: 로그인 화면 로딩 중...</div>'
