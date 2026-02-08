@@ -63,6 +63,15 @@ async function login(username, password) {
     const response = await axios.post('/api/auth/login', { username, password })
     if (response.data.success) {
       saveSession(response.data.user)
+      
+      // 로그인 성공 후 알림 권한 요청 및 푸시 구독
+      setTimeout(async () => {
+        const permission = await requestNotificationPermission()
+        if (permission === 'granted') {
+          await subscribeToPushNotifications()
+        }
+      }, 1000) // 1초 후 실행 (UI 렌더링 후)
+      
       return true
     } else {
       showToast(response.data.message, 'error')
@@ -116,6 +125,14 @@ async function loginWithKakao() {
             saveSession(response.data.user)
             showToast('카카오 로그인 성공!', 'success')
             
+            // 로그인 성공 후 알림 권한 요청 및 푸시 구독
+            setTimeout(async () => {
+              const permission = await requestNotificationPermission()
+              if (permission === 'granted') {
+                await subscribeToPushNotifications()
+              }
+            }, 1000) // 1초 후 실행 (UI 렌더링 후)
+            
             // 역할에 따라 화면 전환
             if (response.data.user.role === 'admin') {
               renderAdminDashboard()
@@ -155,6 +172,14 @@ function handleKakaoCodeFromURL() {
         if (response.data.success) {
           saveSession(response.data.user)
           showToast('카카오 로그인 성공!', 'success')
+          
+          // 로그인 성공 후 알림 권한 요청 및 푸시 구독
+          setTimeout(async () => {
+            const permission = await requestNotificationPermission()
+            if (permission === 'granted') {
+              await subscribeToPushNotifications()
+            }
+          }, 1000)
           
           if (response.data.user.role === 'admin') {
             renderAdminDashboard()
@@ -919,7 +944,17 @@ function renderUserMap() {
               <p class="text-xs text-gray-600">${state.currentUser.name}님</p>
             </div>
           </div>
-          <div class="flex space-x-2">
+          <div class="flex space-x-2 items-center">
+            <!-- 알림 권한 상태 표시 -->
+            <button 
+              id="notificationStatusBtn"
+              onclick="requestNotificationPermission()" 
+              class="p-2 rounded-lg hover:bg-gray-100 transition"
+              title="브라우저 알림 설정"
+            >
+              <i id="notificationStatusIcon" class="fas fa-bell-slash text-gray-400"></i>
+            </button>
+            
             ${state.currentUser.role === 'admin' ? `
             <button onclick="renderAdminDashboard()" class="px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
               <i class="fas fa-user-shield sm:mr-2"></i><span class="hidden sm:inline">관리자</span>
@@ -2704,6 +2739,210 @@ function openKakaoChannel() {
 // 알림 시스템
 // ============================================
 
+// Service Worker 등록
+async function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.register('/service-worker.js')
+      console.log('✅ Service Worker 등록 성공:', registration.scope)
+      return registration
+    } catch (error) {
+      console.error('❌ Service Worker 등록 실패:', error)
+      return null
+    }
+  } else {
+    console.warn('⚠️ Service Worker를 지원하지 않는 브라우저입니다')
+    return null
+  }
+}
+
+// 브라우저 알림 권한 요청
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) {
+    console.warn('⚠️ 브라우저 알림을 지원하지 않습니다')
+    showToast('이 브라우저는 알림을 지원하지 않습니다', 'error')
+    return 'denied'
+  }
+  
+  // 이미 권한이 있으면 바로 반환
+  if (Notification.permission === 'granted') {
+    console.log('✅ 알림 권한이 이미 허용되어 있습니다')
+    showToast('브라우저 알림이 활성화되어 있습니다', 'success')
+    updateNotificationStatusIcon()
+    return 'granted'
+  }
+  
+  // 권한이 거부된 경우 안내
+  if (Notification.permission === 'denied') {
+    showToast('알림이 차단되어 있습니다. 브라우저 설정에서 허용해주세요.\n\n주소창 왼쪽의 자물쇠 아이콘 > 알림 > 허용', 'error')
+    return 'denied'
+  }
+  
+  // 권한 요청
+  try {
+    const permission = await Notification.requestPermission()
+    console.log('📢 알림 권한 결과:', permission)
+    
+    if (permission === 'granted') {
+      showToast('브라우저 알림이 활성화되었습니다! 🔔', 'success')
+      
+      // 테스트 알림 표시
+      setTimeout(() => {
+        showBrowserNotification('알림 설정 완료', {
+          body: 'A/S 작업 완료 시 알림을 받게 됩니다.',
+          icon: '/static/icon-192.png'
+        })
+      }, 500)
+    } else if (permission === 'denied') {
+      showToast('브라우저 알림이 차단되었습니다. 브라우저 설정에서 허용해주세요.', 'error')
+    } else {
+      showToast('알림 권한이 거부되었습니다', 'info')
+    }
+    
+    updateNotificationStatusIcon()
+    return permission
+  } catch (error) {
+    console.error('❌ 알림 권한 요청 실패:', error)
+    showToast('알림 권한 요청 중 오류가 발생했습니다', 'error')
+    return 'denied'
+  }
+}
+
+// 알림 권한 상태 아이콘 업데이트
+function updateNotificationStatusIcon() {
+  const icon = document.getElementById('notificationStatusIcon')
+  const btn = document.getElementById('notificationStatusBtn')
+  
+  if (!icon || !btn) return
+  
+  if (!('Notification' in window)) {
+    icon.className = 'fas fa-bell-slash text-gray-400'
+    btn.title = '브라우저 알림을 지원하지 않습니다'
+    return
+  }
+  
+  if (Notification.permission === 'granted') {
+    icon.className = 'fas fa-bell text-green-500'
+    btn.title = '브라우저 알림이 활성화되어 있습니다'
+  } else if (Notification.permission === 'denied') {
+    icon.className = 'fas fa-bell-slash text-red-500'
+    btn.title = '브라우저 알림이 차단되어 있습니다 (클릭하여 안내 보기)'
+  } else {
+    icon.className = 'fas fa-bell text-yellow-500'
+    btn.title = '브라우저 알림을 활성화하려면 클릭하세요'
+  }
+}
+
+// 푸시 구독 생성 및 서버 저장
+async function subscribeToPushNotifications() {
+  try {
+    // Service Worker 등록 확인
+    const registration = await registerServiceWorker()
+    if (!registration) {
+      console.error('❌ Service Worker가 등록되지 않았습니다')
+      return false
+    }
+    
+    // 알림 권한 확인
+    if (Notification.permission !== 'granted') {
+      console.warn('⚠️ 알림 권한이 없습니다')
+      return false
+    }
+    
+    // VAPID public key (서버에서 생성 필요)
+    const vapidPublicKey = 'BDcmjpnrU8UgS0gxQ25ffysA5cAQxNHrd4R3BiLrZU-cOAnOGQLV9sTEAmEkNOag_Y7wa3wYBkDwtuJxPhjr_EY'
+    
+    // 기존 구독 확인
+    let subscription = await registration.pushManager.getSubscription()
+    
+    // 구독이 없으면 새로 생성
+    if (!subscription) {
+      console.log('📢 새로운 푸시 구독 생성 중...')
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      })
+      console.log('✅ 푸시 구독 생성 완료')
+    } else {
+      console.log('✅ 기존 푸시 구독 사용')
+    }
+    
+    // 서버에 구독 정보 저장
+    if (state.currentUser) {
+      const response = await axios.post('/api/push/subscribe', {
+        userId: state.currentUser.id,
+        subscription: subscription.toJSON()
+      })
+      
+      if (response.data.success) {
+        console.log('✅ 푸시 구독이 서버에 저장되었습니다')
+        return true
+      }
+    }
+    
+    return false
+  } catch (error) {
+    console.error('❌ 푸시 구독 생성 실패:', error)
+    return false
+  }
+}
+
+// VAPID key 변환 유틸리티
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/')
+  
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}
+
+// 브라우저 알림 표시
+function showBrowserNotification(title, options = {}) {
+  if (!('Notification' in window)) {
+    console.warn('⚠️ 브라우저 알림을 지원하지 않습니다')
+    return
+  }
+  
+  if (Notification.permission !== 'granted') {
+    console.warn('⚠️ 알림 권한이 없습니다')
+    return
+  }
+  
+  try {
+    const notification = new Notification(title, {
+      icon: '/static/icon-192.png',
+      badge: '/static/badge-96.png',
+      tag: 'as-notification',
+      requireInteraction: false,
+      ...options
+    })
+    
+    // 알림 클릭 시 앱으로 이동
+    notification.onclick = (event) => {
+      event.preventDefault()
+      window.focus()
+      notification.close()
+    }
+    
+    // 3초 후 자동 닫기
+    setTimeout(() => {
+      notification.close()
+    }, 5000)
+    
+    console.log('✅ 브라우저 알림 표시 성공')
+    
+  } catch (error) {
+    console.error('❌ 브라우저 알림 표시 실패:', error)
+  }
+}
+
 // 알림 폴링 시작
 function startNotificationPolling() {
   if (!state.currentUser) {
@@ -2716,6 +2955,22 @@ function startNotificationPolling() {
   // 기존 폴링이 있으면 중지
   if (state.notificationPollingInterval) {
     clearInterval(state.notificationPollingInterval)
+  }
+  
+  // Service Worker 등록
+  registerServiceWorker()
+  
+  // 알림 권한 상태 아이콘 업데이트
+  setTimeout(() => {
+    updateNotificationStatusIcon()
+  }, 1000)
+  
+  // 로그인 후 5초 뒤에 알림 권한 자동 요청 (사용자가 거부하지 않은 경우만)
+  if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(() => {
+      console.log('📢 알림 권한 자동 요청')
+      requestNotificationPermission()
+    }, 5000)
   }
   
   // 즉시 한 번 확인
@@ -2749,7 +3004,19 @@ async function checkNotifications() {
       
       // 각 알림을 팝업으로 표시
       notifications.forEach(notification => {
+        // 1. 인앱 팝업 표시
         showNotificationPopup(notification)
+        
+        // 2. 브라우저 알림 표시 (권한이 있는 경우)
+        if (Notification.permission === 'granted') {
+          showBrowserNotification(notification.title, {
+            body: notification.message,
+            data: {
+              notification_id: notification.id,
+              customer_id: notification.customer_id
+            }
+          })
+        }
       })
     }
   } catch (error) {
@@ -3515,6 +3782,7 @@ window.renderRegister = renderRegister
 window.loginWithKakao = loginWithKakao
 window.openKakaoChannel = openKakaoChannel
 window.closeNotification = closeNotification
+window.requestNotificationPermission = requestNotificationPermission
 
 // ============================================
 // 앱 초기화

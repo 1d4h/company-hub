@@ -5,9 +5,19 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
 import ExcelJS from 'exceljs'
+import webpush from 'web-push'
 import 'dotenv/config'
+import { readFileSync } from 'fs'
 
 const app = new Hono()
+
+// Web Push VAPID 설정 (환경 변수에서 로드 또는 기본값 사용)
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BDcmjpnrU8UgS0gxQ25ffysA5cAQxNHrd4R3BiLrZU-cOAnOGQLV9sTEAmEkNOag_Y7wa3wYBkDwtuJxPhjr_EY'
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || 'Rb5sTxsncydQHZw4l7buwC0MZzP2gUDJEm-TRvrCrbo'
+const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@example.com'
+
+webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey)
+console.log('✅ Web Push VAPID 설정 완료')
 
 // Supabase 클라이언트 생성
 const supabaseUrl = process.env.SUPABASE_URL
@@ -793,7 +803,7 @@ app.post('/api/customers/as-result', async (c) => {
     
     console.log('✅ A/S 결과 저장 완료')
     
-    // 4. 알림 생성 (모든 사용자에게)
+    // 4. 알림 생성 및 Web Push 전송 (모든 사용자에게)
     if (userName && customerName) {
       console.log('📢 알림 생성 시작...')
       
@@ -823,6 +833,70 @@ app.post('/api/customers/as-result', async (c) => {
         } else {
           console.log(`✅ 알림 생성 완료: ${notifData.length}개`)
         }
+        
+        // 5. Web Push 전송 (모든 사용자의 구독 정보 조회)
+        console.log('📢 Web Push 전송 시작...')
+        const { data: subscriptions, error: subsError } = await supabase
+          .from('push_subscriptions')
+          .select('*')
+        
+        if (!subsError && subscriptions && subscriptions.length > 0) {
+          const pushPayload = JSON.stringify({
+            title: 'A/S 작업 완료',
+            body: `${userName}님이 "${customerName}" 고객의 A/S 작업을 완료했습니다.`,
+            icon: '/static/icon-192.png',
+            badge: '/static/badge-96.png',
+            tag: 'as-notification',
+            requireInteraction: false,
+            data: {
+              url: '/',
+              customerId,
+              type: 'as_complete'
+            }
+          })
+          
+          let successCount = 0
+          let failCount = 0
+          
+          // 각 구독에 대해 Push 전송
+          for (const sub of subscriptions) {
+            try {
+              const pushSubscription = {
+                endpoint: sub.endpoint,
+                keys: {
+                  p256dh: sub.p256dh,
+                  auth: sub.auth
+                }
+              }
+              
+              await webpush.sendNotification(pushSubscription, pushPayload)
+              successCount++
+              
+              // last_used_at 업데이트
+              await supabase
+                .from('push_subscriptions')
+                .update({ last_used_at: new Date().toISOString() })
+                .eq('id', sub.id)
+              
+            } catch (pushError) {
+              console.error(`❌ Push 전송 실패 (user_id: ${sub.user_id}):`, pushError.message)
+              failCount++
+              
+              // 410 Gone 오류인 경우 구독 삭제
+              if (pushError.statusCode === 410) {
+                await supabase
+                  .from('push_subscriptions')
+                  .delete()
+                  .eq('id', sub.id)
+                console.log(`🗑️ 만료된 구독 삭제 (id: ${sub.id})`)
+              }
+            }
+          }
+          
+          console.log(`✅ Web Push 전송 완료: 성공 ${successCount}개, 실패 ${failCount}개`)
+        } else {
+          console.log('ℹ️ 구독된 사용자가 없습니다')
+        }
       } else {
         console.error('❌ 사용자 조회 오류:', usersError)
       }
@@ -835,6 +909,102 @@ app.post('/api/customers/as-result', async (c) => {
   } catch (error) {
     console.error('❌ A/S 결과 저장 오류:', error)
     return c.json({ success: false, message: 'A/S 결과 저장 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// =============================================
+// Push Subscription 관리
+// =============================================
+
+// Push 구독 저장/업데이트
+app.post('/api/push/subscribe', async (c) => {
+  try {
+    const { userId, subscription } = await c.req.json()
+    
+    if (!userId || !subscription) {
+      return c.json({ success: false, message: '필수 데이터가 누락되었습니다.' }, 400)
+    }
+    
+    const { endpoint, keys } = subscription
+    const { p256dh, auth } = keys
+    
+    console.log(`📢 푸시 구독 저장 요청 - 사용자 ID: ${userId}`)
+    
+    // 기존 구독 확인 (endpoint 기준)
+    const { data: existing, error: checkError } = await supabase
+      .from('push_subscriptions')
+      .select('*')
+      .eq('endpoint', endpoint)
+      .single()
+    
+    if (existing) {
+      // 업데이트
+      const { error: updateError } = await supabase
+        .from('push_subscriptions')
+        .update({
+          p256dh,
+          auth,
+          updated_at: new Date().toISOString(),
+          last_used_at: new Date().toISOString()
+        })
+        .eq('endpoint', endpoint)
+      
+      if (updateError) {
+        console.error('❌ 구독 업데이트 오류:', updateError)
+        return c.json({ success: false, message: '구독 업데이트 중 오류가 발생했습니다.' }, 500)
+      }
+      
+      console.log('✅ 푸시 구독 업데이트 완료')
+    } else {
+      // 신규 생성
+      const { error: insertError } = await supabase
+        .from('push_subscriptions')
+        .insert({
+          user_id: userId,
+          endpoint,
+          p256dh,
+          auth,
+          user_agent: c.req.header('user-agent') || 'Unknown'
+        })
+      
+      if (insertError) {
+        console.error('❌ 구독 생성 오류:', insertError)
+        return c.json({ success: false, message: '구독 생성 중 오류가 발생했습니다.' }, 500)
+      }
+      
+      console.log('✅ 푸시 구독 생성 완료')
+    }
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('❌ 푸시 구독 저장 오류:', error)
+    return c.json({ success: false, message: '푸시 구독 저장 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// Push 구독 조회
+app.get('/api/push/subscriptions', async (c) => {
+  try {
+    const userId = c.req.query('userId')
+    
+    if (!userId) {
+      return c.json({ success: false, message: '사용자 ID가 필요합니다.' }, 400)
+    }
+    
+    const { data: subscriptions, error } = await supabase
+      .from('push_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+    
+    if (error) {
+      console.error('❌ 구독 조회 오류:', error)
+      return c.json({ success: false, message: '구독 조회 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    return c.json({ success: true, subscriptions })
+  } catch (error) {
+    console.error('❌ 구독 조회 오류:', error)
+    return c.json({ success: false, message: '구독 조회 중 오류가 발생했습니다.' }, 500)
   }
 })
 
@@ -1246,6 +1416,20 @@ app.post('/api/notifications/create', async (c) => {
 // ============================================
 // 메인 페이지
 // ============================================
+
+// Service Worker 서빙
+app.get('/service-worker.js', (c) => {
+  try {
+    const swContent = readFileSync('./public/service-worker.js', 'utf-8')
+    c.header('Content-Type', 'application/javascript')
+    c.header('Service-Worker-Allowed', '/')
+    return c.body(swContent)
+  } catch (error) {
+    console.error('❌ Service Worker 파일 로드 실패:', error)
+    return c.text('Service Worker not found', 404)
+  }
+})
+
 app.get('/', (c) => {
   return c.html(`
     <!DOCTYPE html>
