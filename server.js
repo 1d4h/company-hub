@@ -730,13 +730,15 @@ app.post('/api/customers/as-photo/upload', async (c) => {
 
 app.post('/api/customers/as-result', async (c) => {
   try {
-    const { customerId, resultText, uploadedPhotos, completedAt } = await c.req.json()
+    const { customerId, resultText, uploadedPhotos, completedAt, userId, userName, customerName } = await c.req.json()
     
     console.log('📋 A/S 결과 저장 요청:', {
       customerId,
       resultText: resultText?.substring(0, 50) + '...',
       photoCount: uploadedPhotos?.length || 0,
-      completedAt
+      completedAt,
+      userName,
+      customerName
     })
     
     // 1. as_records 테이블에 저장
@@ -790,6 +792,41 @@ app.post('/api/customers/as-result', async (c) => {
     }
     
     console.log('✅ A/S 결과 저장 완료')
+    
+    // 4. 알림 생성 (모든 사용자에게)
+    if (userName && customerName) {
+      console.log('📢 알림 생성 시작...')
+      
+      // 모든 사용자 조회
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, username, name')
+      
+      if (!usersError && users && users.length > 0) {
+        // 각 사용자에게 알림 생성
+        const notifications = users.map(user => ({
+          user_id: user.id,
+          customer_id: customerId,
+          type: 'as_complete',
+          title: 'A/S 작업 완료',
+          message: `${userName}님이 "${customerName}" 고객의 A/S 작업을 완료했습니다.`,
+          is_read: false
+        }))
+        
+        const { data: notifData, error: notifError } = await supabase
+          .from('notifications')
+          .insert(notifications)
+          .select()
+        
+        if (notifError) {
+          console.error('❌ 알림 생성 오류:', notifError)
+        } else {
+          console.log(`✅ 알림 생성 완료: ${notifData.length}개`)
+        }
+      } else {
+        console.error('❌ 사용자 조회 오류:', usersError)
+      }
+    }
     
     return c.json({
       success: true,
@@ -1092,6 +1129,121 @@ app.post('/api/geocode', async (c) => {
 })
 
 // ============================================
+// 알림 API
+// ============================================
+
+// 알림 목록 조회 (읽지 않은 알림)
+app.get('/api/notifications', async (c) => {
+  try {
+    const userId = c.req.query('user_id')
+    
+    if (!userId) {
+      return c.json({ success: false, message: '사용자 ID가 필요합니다.' }, 400)
+    }
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_read', false)
+      .order('created_at', { ascending: false })
+    
+    if (error) {
+      console.error('❌ 알림 조회 오류:', error)
+      return c.json({ success: false, message: '알림 조회 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    return c.json({ success: true, notifications: data })
+  } catch (error) {
+    console.error('❌ 알림 조회 오류:', error)
+    return c.json({ success: false, message: '알림 조회 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 알림 읽음 처리
+app.post('/api/notifications/:id/read', async (c) => {
+  try {
+    const id = c.req.param('id')
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ 
+        is_read: true,
+        read_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('❌ 알림 읽음 처리 오류:', error)
+      return c.json({ success: false, message: '알림 읽음 처리 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    return c.json({ success: true, notification: data })
+  } catch (error) {
+    console.error('❌ 알림 읽음 처리 오류:', error)
+    return c.json({ success: false, message: '알림 읽음 처리 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 알림 생성 (A/S 완료 시)
+app.post('/api/notifications/create', async (c) => {
+  try {
+    const { customer_id, customer_name, completed_by_name } = await c.req.json()
+    
+    if (!customer_id || !customer_name || !completed_by_name) {
+      return c.json({ success: false, message: '필수 정보가 누락되었습니다.' }, 400)
+    }
+    
+    console.log('📢 알림 생성 시작:', { customer_name, completed_by_name })
+    
+    // 모든 사용자 조회 (알림을 받을 대상)
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, username, name')
+    
+    if (usersError) {
+      console.error('❌ 사용자 조회 오류:', usersError)
+      return c.json({ success: false, message: '사용자 조회 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    console.log(`📢 알림 대상: ${users.length}명`)
+    
+    // 각 사용자에게 알림 생성
+    const notifications = users.map(user => ({
+      user_id: user.id,
+      customer_id: customer_id,
+      type: 'as_complete',
+      title: 'A/S 작업 완료',
+      message: `${completed_by_name}님이 "${customer_name}" 고객의 A/S 작업을 완료했습니다.`,
+      is_read: false
+    }))
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert(notifications)
+      .select()
+    
+    if (error) {
+      console.error('❌ 알림 생성 오류:', error)
+      return c.json({ success: false, message: '알림 생성 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    console.log(`✅ 알림 생성 완료: ${data.length}개`)
+    
+    return c.json({ 
+      success: true, 
+      message: `${data.length}명에게 알림이 전송되었습니다.`,
+      count: data.length
+    })
+  } catch (error) {
+    console.error('❌ 알림 생성 오류:', error)
+    return c.json({ success: false, message: '알림 생성 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// ============================================
 // 메인 페이지
 // ============================================
 app.get('/', (c) => {
@@ -1104,6 +1256,31 @@ app.get('/', (c) => {
         <title>고객관리 시스템</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+          @keyframes slideInRight {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+          @keyframes slideOutRight {
+            from {
+              transform: translateX(0);
+              opacity: 1;
+            }
+            to {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+          }
+          .animate-slide-in {
+            animation: slideInRight 0.3s ease-out;
+          }
+        </style>
         <!-- Kakao Maps API -->
         <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=c933c69ba4e0228895438c6a8c327e74&libraries=services"></script>
         <!-- Kakao JavaScript SDK (로그인 및 채널톡) -->

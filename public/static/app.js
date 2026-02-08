@@ -15,7 +15,9 @@ const state = {
   sortedCustomers: null,  // 거리순 정렬된 고객 목록
   asPhotos: [],  // A/S 사진 배열
   currentASCustomerId: null,  // 현재 A/S 작업 중인 고객 ID
-  gpsEnabled: true  // GPS 활성화 상태 (기본값: 활성화)
+  gpsEnabled: true,  // GPS 활성화 상태 (기본값: 활성화)
+  notificationPollingInterval: null,  // 알림 폴링 인터벌
+  lastNotificationCheck: null  // 마지막 알림 확인 시간
 }
 
 // ============================================
@@ -1580,6 +1582,9 @@ function initKakaoMap() {
       requestUserLocation()
     }
     
+    // 알림 폴링 시작
+    startNotificationPolling()
+    
   } catch (error) {
     console.error('❌ Kakao Maps 초기화 실패:', error)
     showMapFallback()
@@ -1781,6 +1786,9 @@ function renderCustomerTable() {
 // ============================================
 
 function logout() {
+  // 알림 폴링 중지
+  stopNotificationPolling()
+  
   clearSession()
   showToast('로그아웃 되었습니다', 'info')
   renderLogin()
@@ -2692,6 +2700,129 @@ function openKakaoChannel() {
   }
 }
 
+// ============================================
+// 알림 시스템
+// ============================================
+
+// 알림 폴링 시작
+function startNotificationPolling() {
+  if (!state.currentUser) {
+    console.log('⚠️ 로그인된 사용자가 없어 알림 폴링을 시작하지 않습니다')
+    return
+  }
+  
+  console.log('📢 알림 폴링 시작:', state.currentUser.name)
+  
+  // 기존 폴링이 있으면 중지
+  if (state.notificationPollingInterval) {
+    clearInterval(state.notificationPollingInterval)
+  }
+  
+  // 즉시 한 번 확인
+  checkNotifications()
+  
+  // 10초마다 알림 확인
+  state.notificationPollingInterval = setInterval(() => {
+    checkNotifications()
+  }, 10000)  // 10초
+}
+
+// 알림 폴링 중지
+function stopNotificationPolling() {
+  if (state.notificationPollingInterval) {
+    clearInterval(state.notificationPollingInterval)
+    state.notificationPollingInterval = null
+    console.log('📢 알림 폴링 중지')
+  }
+}
+
+// 알림 확인
+async function checkNotifications() {
+  if (!state.currentUser) return
+  
+  try {
+    const response = await axios.get(`/api/notifications?user_id=${state.currentUser.id}`)
+    
+    if (response.data.success && response.data.notifications.length > 0) {
+      const notifications = response.data.notifications
+      console.log(`📢 새 알림 ${notifications.length}개 수신`)
+      
+      // 각 알림을 팝업으로 표시
+      notifications.forEach(notification => {
+        showNotificationPopup(notification)
+      })
+    }
+  } catch (error) {
+    console.error('❌ 알림 확인 오류:', error)
+  }
+}
+
+// 알림 팝업 표시
+function showNotificationPopup(notification) {
+  // 알림 컨테이너 생성 (없으면)
+  let container = document.getElementById('notification-container')
+  if (!container) {
+    container = document.createElement('div')
+    container.id = 'notification-container'
+    container.className = 'fixed top-20 right-4 z-50 space-y-3'
+    container.style.maxWidth = '400px'
+    document.body.appendChild(container)
+  }
+  
+  // 알림 카드 생성
+  const notificationCard = document.createElement('div')
+  notificationCard.className = 'bg-white rounded-lg shadow-2xl border-l-4 border-blue-500 p-4 animate-slide-in'
+  notificationCard.style.animation = 'slideInRight 0.3s ease-out'
+  
+  notificationCard.innerHTML = `
+    <div class="flex items-start">
+      <div class="flex-shrink-0">
+        <i class="fas fa-bell text-blue-500 text-2xl"></i>
+      </div>
+      <div class="ml-3 flex-1">
+        <p class="text-sm font-semibold text-gray-900">${notification.title}</p>
+        <p class="mt-1 text-sm text-gray-700">${notification.message}</p>
+        <p class="mt-2 text-xs text-gray-500">${new Date(notification.created_at).toLocaleString('ko-KR')}</p>
+      </div>
+      <button onclick="closeNotification(${notification.id}, this)" class="ml-3 flex-shrink-0 text-gray-400 hover:text-gray-600">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `
+  
+  container.appendChild(notificationCard)
+  
+  // 자동으로 5초 후 사라짐
+  setTimeout(() => {
+    closeNotification(notification.id, notificationCard.querySelector('button'))
+  }, 10000)  // 10초
+}
+
+// 알림 닫기
+async function closeNotification(notificationId, buttonElement) {
+  try {
+    // 알림 읽음 처리
+    await axios.post(`/api/notifications/${notificationId}/read`)
+    
+    // UI에서 제거
+    const card = buttonElement.closest('div.bg-white')
+    if (card) {
+      card.style.animation = 'slideOutRight 0.3s ease-out'
+      setTimeout(() => {
+        card.remove()
+        
+        // 컨테이너가 비었으면 제거
+        const container = document.getElementById('notification-container')
+        if (container && container.children.length === 0) {
+          container.remove()
+        }
+      }, 300)
+    }
+  } catch (error) {
+    console.error('❌ 알림 닫기 오류:', error)
+  }
+}
+
 
 // 내 위치로 이동
 function moveToUserLocation() {
@@ -3222,7 +3353,10 @@ async function completeASResult() {
           customerId: customerId,
           resultText: resultText,
           uploadedPhotos: uploadedPhotos,
-          completedAt: new Date().toISOString()
+          completedAt: new Date().toISOString(),
+          userId: state.currentUser.id,
+          userName: state.currentUser.name,
+          customerName: customer ? customer.customer_name : '고객'
         })
       })
       
@@ -3380,6 +3514,7 @@ window.renderLogin = renderLogin
 window.renderRegister = renderRegister
 window.loginWithKakao = loginWithKakao
 window.openKakaoChannel = openKakaoChannel
+window.closeNotification = closeNotification
 
 // ============================================
 // 앱 초기화
