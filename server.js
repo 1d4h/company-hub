@@ -1468,7 +1468,7 @@ app.get('/', (c) => {
         <!-- Kakao Maps API -->
         <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=c933c69ba4e0228895438c6a8c327e74&libraries=services"></script>
         <!-- Kakao JavaScript SDK (로그인 및 채널톡) -->
-        <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" integrity="sha384-TiCUE00h+f9KEhU3J4z9a+do9qH7OYc9pMCQROsHNlcVuO6MmbiZMiXfqRvRFCVV" crossorigin="anonymous"></script>
+        <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" crossorigin="anonymous"></script>
         <script>
           // Kakao SDK 초기화
           if (window.Kakao && !Kakao.isInitialized()) {
