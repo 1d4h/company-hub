@@ -69,7 +69,7 @@ app.post('/api/auth/login', async (c) => {
     const user = users[0]
     
     // 비밀번호 검증 (bcrypt)
-    const isValidPassword = await bcrypt.compare(password, user.password_hash)
+    const isValidPassword = await bcrypt.compare(password, user.password)
     
     if (!isValidPassword) {
       console.log('❌ 비밀번호 불일치:', username)
@@ -175,7 +175,7 @@ app.post('/api/auth/kakao', async (c) => {
         .from('users')
         .insert([{
           username: username,
-          password_hash: null, // 카카오 로그인은 비밀번호 불필요
+          password: '', // 카카오 로그인은 비밀번호 불필요 (빈 문자열)
           role: 'user',
           name: nickname,
           kakao_id: kakaoUser.id,
