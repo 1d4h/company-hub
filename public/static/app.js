@@ -1039,14 +1039,6 @@ function renderUserMap() {
           </svg>
         </button>
         
-        <!-- 위성 지도 토글 버튼 (우측 상단) -->
-        <button 
-          onclick="toggleMapType()" 
-          id="mapTypeBtn"
-          class="absolute top-4 right-4 px-4 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition z-20 text-sm font-semibold"
-        >
-          <i class="fas fa-satellite mr-1"></i><span id="mapTypeText">위성 지도</span>
-        </button>
         <!-- 고객 상세 정보 패널 (모바일 최적화: 전체 화면 모달) -->
         <div id="customerDetailPanel" class="hidden fixed inset-0 bg-white z-30 overflow-y-auto md:absolute md:top-4 md:right-4 md:left-auto md:bottom-auto md:rounded-xl md:shadow-xl md:w-80 md:max-h-[calc(100vh-120px)]">
           <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
@@ -2753,38 +2745,15 @@ function toggleMapType() {
 
 // 카카오톡 채널 채팅 열기
 function openKakaoChannel() {
+  // 오픈 카카오톡 채팅방 링크로 바로 이동
+  const kakaoChannelUrl = 'https://open.kakao.com/o/gwauVvfi'
+  
   try {
-    // Kakao SDK 초기화 확인
-    if (!window.Kakao || !window.Kakao.isInitialized()) {
-      showToast('카카오 SDK가 초기화되지 않았습니다', 'error')
-      console.error('❌ Kakao SDK not initialized')
-      return
-    }
-    
-    // 채널 ID 설정 (환경 변수에서 가져오거나 기본값 사용)
-    const channelId = '_your_channel_id' // 실제 채널 ID로 변경 필요
-    
-    if (channelId === '_your_channel_id') {
-      showToast('카카오톡 채널이 설정되지 않았습니다', 'info')
-      console.warn('⚠️ 카카오톡 채널 ID를 설정해주세요 (KAKAO_CHANNEL_ID)')
-      
-      // 데모: 카카오톡 채널 안내 모달 표시
-      const confirmOpen = confirm('카카오톡 채널 채팅을 사용하려면 관리자에게 문의하세요.\n\n지금 카카오톡으로 이동하시겠습니까?')
-      if (confirmOpen) {
-        window.open('https://pf.kakao.com/', '_blank')
-      }
-      return
-    }
-    
-    // 카카오톡 채널 채팅 열기
-    Kakao.Channel.chat({
-      channelPublicId: channelId
-    })
-    
-    console.log('✅ 카카오톡 채널 채팅 열기:', channelId)
+    window.open(kakaoChannelUrl, '_blank')
+    console.log('✅ 카카오톡 채팅방 열기:', kakaoChannelUrl)
   } catch (error) {
-    console.error('❌ 카카오톡 채널 열기 실패:', error)
-    showToast('카카오톡 채널을 여는 중 오류가 발생했습니다', 'error')
+    console.error('❌ 카카오톡 채팅방 열기 실패:', error)
+    showToast('카카오톡 채팅방을 여는 중 오류가 발생했습니다', 'error')
   }
 }
 
