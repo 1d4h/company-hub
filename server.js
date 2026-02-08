@@ -1484,8 +1484,8 @@ app.get('/', (c) => {
           // Supabase 클라이언트 초기화
           const { createClient } = supabase
           window.supabaseClient = createClient(
-            'https://zgeunzvwozsfzwxasdee.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnZXVuenZ3b3pzZnp3eGFzZGVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMDA2OTgsImV4cCI6MjA4NTc3NjY5OH0.tzhVRxNdd2a-I702YeBpVrWBUWfebdah6oi77GpMx2g'
+            'https://peelrrycglnqdcxtllfr.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlZWxycnljZ2xucWRjeHRsbGZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1MjM5NzAsImV4cCI6MjA4NjA5OTk3MH0.t_Hap-t_4DurLLCPzSD-o88uhtL5HbpNsxvrhTTCNyw'
           )
           console.log('✅ Supabase 클라이언트 초기화 완료')
         </script>
