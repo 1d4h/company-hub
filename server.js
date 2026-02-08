@@ -83,6 +83,166 @@ app.post('/api/auth/login', async (c) => {
   }
 })
 
+// 카카오 로그인 - 인증 코드로 액세스 토큰 요청
+app.post('/api/auth/kakao', async (c) => {
+  try {
+    const { code } = await c.req.json()
+    
+    if (!code) {
+      return c.json({ success: false, message: '인증 코드가 없습니다.' }, 400)
+    }
+    
+    console.log('🔐 카카오 로그인 시도, 인증 코드:', code.substring(0, 10) + '...')
+    
+    // 1. 액세스 토큰 요청
+    const tokenResponse = await fetch('https://kauth.kakao.com/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: process.env.KAKAO_REST_API_KEY,
+        redirect_uri: `${c.req.url.split('/api')[0]}/api/auth/kakao/callback`,
+        code: code
+      })
+    })
+    
+    const tokenData = await tokenResponse.json()
+    
+    if (!tokenResponse.ok || tokenData.error) {
+      console.error('❌ 카카오 토큰 요청 실패:', tokenData)
+      return c.json({ success: false, message: '카카오 인증에 실패했습니다.' }, 401)
+    }
+    
+    console.log('✅ 카카오 액세스 토큰 획득 성공')
+    
+    // 2. 사용자 정보 요청
+    const userResponse = await fetch('https://kapi.kakao.com/v2/user/me', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`
+      }
+    })
+    
+    const kakaoUser = await userResponse.json()
+    
+    if (!userResponse.ok || kakaoUser.error) {
+      console.error('❌ 카카오 사용자 정보 요청 실패:', kakaoUser)
+      return c.json({ success: false, message: '사용자 정보를 가져올 수 없습니다.' }, 401)
+    }
+    
+    console.log('✅ 카카오 사용자 정보:', {
+      id: kakaoUser.id,
+      nickname: kakaoUser.kakao_account?.profile?.nickname
+    })
+    
+    // 3. Supabase에서 카카오 ID로 사용자 조회
+    const { data: existingUsers, error: selectError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('kakao_id', kakaoUser.id)
+      .limit(1)
+    
+    if (selectError) {
+      console.error('❌ Supabase 조회 오류:', selectError)
+      return c.json({ success: false, message: '데이터베이스 오류가 발생했습니다.' }, 500)
+    }
+    
+    let user
+    
+    if (existingUsers && existingUsers.length > 0) {
+      // 4-1. 기존 사용자 - 로그인
+      user = existingUsers[0]
+      console.log('✅ 기존 카카오 사용자 로그인:', user.username)
+    } else {
+      // 4-2. 신규 사용자 - 회원가입
+      const username = `kakao_${kakaoUser.id}`
+      const nickname = kakaoUser.kakao_account?.profile?.nickname || '카카오 사용자'
+      const profileImage = kakaoUser.kakao_account?.profile?.profile_image_url || null
+      const email = kakaoUser.kakao_account?.email || null
+      
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert([{
+          username: username,
+          password_hash: null, // 카카오 로그인은 비밀번호 불필요
+          role: 'user',
+          name: nickname,
+          kakao_id: kakaoUser.id,
+          kakao_nickname: nickname,
+          kakao_profile_image: profileImage,
+          kakao_email: email,
+          login_type: 'kakao'
+        }])
+        .select()
+        .single()
+      
+      if (insertError) {
+        console.error('❌ 신규 사용자 생성 오류:', insertError)
+        return c.json({ success: false, message: '회원가입 처리 중 오류가 발생했습니다.' }, 500)
+      }
+      
+      user = newUser
+      console.log('✅ 신규 카카오 사용자 등록:', nickname)
+    }
+    
+    // 5. 세션 정보 반환
+    return c.json({ 
+      success: true, 
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        name: user.name || user.kakao_nickname,
+        profileImage: user.kakao_profile_image,
+        loginType: user.login_type
+      }
+    })
+    
+  } catch (error) {
+    console.error('❌ 카카오 로그인 오류:', error)
+    return c.json({ success: false, message: '카카오 로그인 처리 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 카카오 로그인 콜백 (리다이렉트용)
+app.get('/api/auth/kakao/callback', async (c) => {
+  const code = c.req.query('code')
+  const error = c.req.query('error')
+  
+  if (error) {
+    console.error('❌ 카카오 인증 실패:', error)
+    return c.redirect('/?error=kakao_auth_failed')
+  }
+  
+  if (!code) {
+    console.error('❌ 인증 코드 없음')
+    return c.redirect('/?error=no_auth_code')
+  }
+  
+  // 프론트엔드로 코드 전달 (팝업 창에서 사용)
+  return c.html(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>카카오 로그인</title>
+    </head>
+    <body>
+      <script>
+        // 부모 창으로 인증 코드 전달
+        if (window.opener) {
+          window.opener.postMessage({ type: 'KAKAO_AUTH', code: '${code}' }, '*');
+          window.close();
+        } else {
+          window.location.href = '/?kakao_code=${code}';
+        }
+      </script>
+      <p>로그인 중...</p>
+    </body>
+    </html>
+  `)
+})
+
 // ============================================
 // 고객 관리 API
 // ============================================
@@ -946,6 +1106,15 @@ app.get('/', (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <!-- Kakao Maps API -->
         <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=c933c69ba4e0228895438c6a8c327e74&libraries=services"></script>
+        <!-- Kakao JavaScript SDK (로그인 및 채널톡) -->
+        <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" integrity="sha384-TiCUE00h+f9KEhU3J4z9a+do9qH7OYc9pMCQROsHNlcVuO6MmbiZMiXfqRvRFCVV" crossorigin="anonymous"></script>
+        <script>
+          // Kakao SDK 초기화
+          if (window.Kakao && !Kakao.isInitialized()) {
+            Kakao.init('c933c69ba4e0228895438c6a8c327e74') // JavaScript Key
+            console.log('✅ Kakao SDK 초기화 완료:', Kakao.isInitialized())
+          }
+        </script>
         <!-- SheetJS for Excel file parsing -->
         <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
         <!-- Supabase JS Client -->

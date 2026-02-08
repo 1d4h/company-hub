@@ -72,6 +72,106 @@ async function login(username, password) {
   }
 }
 
+// 카카오 로그인 함수
+async function loginWithKakao() {
+  try {
+    // Kakao SDK 초기화 확인
+    if (!window.Kakao || !window.Kakao.isInitialized()) {
+      showToast('카카오 SDK가 초기화되지 않았습니다', 'error')
+      return
+    }
+    
+    // REST API Key 확인
+    const restApiKey = 'c933c69ba4e0228895438c6a8c327e74' // JavaScript Key를 임시로 사용
+    const redirectUri = `${window.location.origin}/api/auth/kakao/callback`
+    
+    // 카카오 인증 URL
+    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${restApiKey}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`
+    
+    // 팝업으로 카카오 로그인 창 열기
+    const popup = window.open(
+      kakaoAuthUrl,
+      'kakao-login',
+      'width=500,height=700,scrollbars=yes'
+    )
+    
+    if (!popup) {
+      showToast('팝업이 차단되었습니다. 팝업 차단을 해제해주세요.', 'error')
+      return
+    }
+    
+    // 팝업에서 인증 코드 받기
+    window.addEventListener('message', async (event) => {
+      if (event.data.type === 'KAKAO_AUTH' && event.data.code) {
+        const code = event.data.code
+        console.log('✅ 카카오 인증 코드 수신:', code.substring(0, 10) + '...')
+        
+        // 백엔드로 인증 코드 전송
+        try {
+          const response = await axios.post('/api/auth/kakao', { code })
+          
+          if (response.data.success) {
+            saveSession(response.data.user)
+            showToast('카카오 로그인 성공!', 'success')
+            
+            // 역할에 따라 화면 전환
+            if (response.data.user.role === 'admin') {
+              renderAdminDashboard()
+            } else {
+              renderUserMap()
+            }
+          } else {
+            showToast(response.data.message || '카카오 로그인 실패', 'error')
+          }
+        } catch (error) {
+          console.error('❌ 카카오 로그인 오류:', error)
+          showToast('카카오 로그인 중 오류가 발생했습니다', 'error')
+        }
+      }
+    })
+    
+  } catch (error) {
+    console.error('❌ 카카오 로그인 오류:', error)
+    showToast('카카오 로그인 중 오류가 발생했습니다', 'error')
+  }
+}
+
+// URL에서 카카오 인증 코드 처리 (리다이렉트 방식)
+function handleKakaoCodeFromURL() {
+  const urlParams = new URLSearchParams(window.location.search)
+  const code = urlParams.get('kakao_code')
+  
+  if (code) {
+    console.log('🔐 URL에서 카카오 인증 코드 감지:', code.substring(0, 10) + '...')
+    
+    // URL에서 code 파라미터 제거
+    window.history.replaceState({}, document.title, '/')
+    
+    // 백엔드로 인증 코드 전송
+    axios.post('/api/auth/kakao', { code })
+      .then(response => {
+        if (response.data.success) {
+          saveSession(response.data.user)
+          showToast('카카오 로그인 성공!', 'success')
+          
+          if (response.data.user.role === 'admin') {
+            renderAdminDashboard()
+          } else {
+            renderUserMap()
+          }
+        } else {
+          showToast(response.data.message || '카카오 로그인 실패', 'error')
+          renderLogin()
+        }
+      })
+      .catch(error => {
+        console.error('❌ 카카오 로그인 오류:', error)
+        showToast('카카오 로그인 중 오류가 발생했습니다', 'error')
+        renderLogin()
+      })
+  }
+}
+
 async function loadCustomers() {
   try {
     const response = await axios.get('/api/customers')
@@ -369,6 +469,22 @@ function renderLogin() {
             <i class="fas fa-sign-in-alt mr-2"></i>로그인
           </button>
         </form>
+        
+        <div class="mt-4 flex items-center">
+          <div class="flex-1 border-t border-gray-300"></div>
+          <span class="px-4 text-gray-500 text-sm">또는</span>
+          <div class="flex-1 border-t border-gray-300"></div>
+        </div>
+        
+        <button 
+          onclick="loginWithKakao()" 
+          class="w-full mt-4 bg-yellow-400 text-gray-900 py-3 rounded-lg hover:bg-yellow-500 transition font-semibold flex items-center justify-center"
+        >
+          <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3C6.477 3 2 6.477 2 10.75c0 2.866 2.038 5.366 5.038 6.75l-1.288 4.5 4.5-3c.75.15 1.537.25 2.35.25 5.523 0 10-3.477 10-7.75S17.523 3 12 3z"/>
+          </svg>
+          카카오 로그인
+        </button>
         
         <button 
           onclick="renderRegister()" 
@@ -828,7 +944,25 @@ function renderUserMap() {
           <i class="fas fa-crosshairs text-xl" id="gpsIcon"></i>
         </button>
         
+        <!-- 카카오톡 채팅 버튼 (좌측 상단, GPS 버튼 아래) -->
+        <button 
+          onclick="openKakaoChannel()" 
+          class="absolute top-20 left-4 w-12 h-12 bg-yellow-400 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 transition z-20"
+          title="카카오톡 채팅 상담"
+        >
+          <svg class="w-6 h-6 text-gray-900" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3C6.477 3 2 6.477 2 10.75c0 2.866 2.038 5.366 5.038 6.75l-1.288 4.5 4.5-3c.75.15 1.537.25 2.35.25 5.523 0 10-3.477 10-7.75S17.523 3 12 3z"/>
+          </svg>
+        </button>
         
+        <!-- 위성 지도 토글 버튼 (우측 상단) -->
+        <button 
+          onclick="toggleMapType()" 
+          id="mapTypeBtn"
+          class="absolute top-4 right-4 px-4 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition z-20 text-sm font-semibold"
+        >
+          <i class="fas fa-satellite mr-1"></i><span id="mapTypeText">위성 지도</span>
+        </button>
         <!-- 고객 상세 정보 패널 (모바일 최적화: 전체 화면 모달) -->
         <div id="customerDetailPanel" class="hidden fixed inset-0 bg-white z-30 overflow-y-auto md:absolute md:top-4 md:right-4 md:left-auto md:bottom-auto md:rounded-xl md:shadow-xl md:w-80 md:max-h-[calc(100vh-120px)]">
           <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
@@ -2521,6 +2655,43 @@ function toggleMapType() {
   }
 }
 
+// 카카오톡 채널 채팅 열기
+function openKakaoChannel() {
+  try {
+    // Kakao SDK 초기화 확인
+    if (!window.Kakao || !window.Kakao.isInitialized()) {
+      showToast('카카오 SDK가 초기화되지 않았습니다', 'error')
+      console.error('❌ Kakao SDK not initialized')
+      return
+    }
+    
+    // 채널 ID 설정 (환경 변수에서 가져오거나 기본값 사용)
+    const channelId = '_your_channel_id' // 실제 채널 ID로 변경 필요
+    
+    if (channelId === '_your_channel_id') {
+      showToast('카카오톡 채널이 설정되지 않았습니다', 'info')
+      console.warn('⚠️ 카카오톡 채널 ID를 설정해주세요 (KAKAO_CHANNEL_ID)')
+      
+      // 데모: 카카오톡 채널 안내 모달 표시
+      const confirmOpen = confirm('카카오톡 채널 채팅을 사용하려면 관리자에게 문의하세요.\n\n지금 카카오톡으로 이동하시겠습니까?')
+      if (confirmOpen) {
+        window.open('https://pf.kakao.com/', '_blank')
+      }
+      return
+    }
+    
+    // 카카오톡 채널 채팅 열기
+    Kakao.Channel.chat({
+      channelPublicId: channelId
+    })
+    
+    console.log('✅ 카카오톡 채널 채팅 열기:', channelId)
+  } catch (error) {
+    console.error('❌ 카카오톡 채널 열기 실패:', error)
+    showToast('카카오톡 채널을 여는 중 오류가 발생했습니다', 'error')
+  }
+}
+
 
 // 내 위치로 이동
 function moveToUserLocation() {
@@ -3207,6 +3378,8 @@ window.toggleMapType = toggleMapType
 window.togglePasswordVisibility = togglePasswordVisibility
 window.renderLogin = renderLogin
 window.renderRegister = renderRegister
+window.loginWithKakao = loginWithKakao
+window.openKakaoChannel = openKakaoChannel
 
 // ============================================
 // 앱 초기화
@@ -3232,6 +3405,9 @@ function initApp() {
     console.error('❌ app 엘리먼트를 찾을 수 없습니다!')
     return
   }
+  
+  // URL에서 카카오 인증 코드 확인
+  handleKakaoCodeFromURL()
   
   // 세션 확인
   if (loadSession()) {
