@@ -489,6 +489,27 @@ function renderLogin() {
             </div>
           </div>
           
+          <!-- 아이디 저장 & 자동 로그인 -->
+          <div class="mt-4 mb-4 flex items-center justify-between text-sm">
+            <label class="flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                id="saveUsername" 
+                class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span class="ml-2 text-gray-700">아이디 저장</span>
+            </label>
+            
+            <label class="flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                id="autoLogin" 
+                class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span class="ml-2 text-gray-700">자동 로그인</span>
+            </label>
+          </div>
+          
           <button 
             type="submit" 
             class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
@@ -512,27 +533,6 @@ function renderLogin() {
           </svg>
           카카오 로그인
         </button>
-        
-        <!-- 아이디 저장 & 자동 로그인 -->
-        <div class="mt-6 flex items-center justify-between text-sm">
-          <label class="flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
-              id="saveUsername" 
-              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <span class="ml-2 text-gray-700">아이디 저장</span>
-          </label>
-          
-          <label class="flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
-              id="autoLogin" 
-              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <span class="ml-2 text-gray-700">자동 로그인</span>
-          </label>
-        </div>
       </div>
     </div>
   `
