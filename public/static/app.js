@@ -445,7 +445,7 @@ function togglePasswordVisibility(inputId, iconId) {
 function renderLogin() {
   const app = document.getElementById('app')
   app.innerHTML = `
-    <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
+    <div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 py-8">
       <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
         <div class="text-center mb-8">
           <i class="fas fa-map-marked-alt text-5xl text-blue-600 mb-4"></i>
@@ -536,8 +536,8 @@ function renderLogin() {
       </div>
       
       <!-- 푸터 (사업자 정보) -->
-      <footer class="mt-8 text-center text-white text-xs">
-        <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg p-6 max-w-md mx-auto">
+      <footer class="mt-8 text-center text-white text-xs max-w-md">
+        <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg p-6">
           <div class="space-y-2">
             <p class="font-semibold text-sm">드림박스</p>
             <p>대표자: 이진웅 | 사업자등록번호: 509-04-32195</p>
