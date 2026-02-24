@@ -224,6 +224,12 @@ async function deleteCustomer(id) {
     if (response.data.success) {
       showToast('고객이 삭제되었습니다', 'success')
       await loadCustomers()
+      
+      // 고객 삭제 후 좌표 누락 고객 자동 업데이트 시도
+      setTimeout(() => {
+        autoUpdateMissingCoordinates()
+      }, 2000)  // 2초 후 실행
+      
       return true
     }
     return false
@@ -239,12 +245,101 @@ async function batchDeleteCustomers(ids) {
     if (response.data.success) {
       showToast(`${response.data.deleted}명의 고객이 삭제되었습니다`, 'success')
       await loadCustomers()
+      
+      // 고객 삭제 후 좌표 누락 고객 자동 업데이트 시도
+      setTimeout(() => {
+        autoUpdateMissingCoordinates()
+      }, 2000)  // 2초 후 실행
+      
       return true
     }
     return false
   } catch (error) {
     showToast('고객 일괄 삭제 중 오류가 발생했습니다', 'error')
     return false
+  }
+}
+
+// 좌표 누락 고객 자동 업데이트 (지오코딩 재시도)
+async function autoUpdateMissingCoordinates() {
+  try {
+    console.log('🔄 좌표 누락 고객 자동 업데이트 시작...')
+    
+    // 좌표 누락 고객 조회 (최대 50개)
+    const response = await axios.get('/api/customers/missing-coordinates?limit=50')
+    
+    if (!response.data.success || response.data.customers.length === 0) {
+      console.log('✅ 좌표 누락 고객 없음')
+      return
+    }
+    
+    const missingCustomers = response.data.customers
+    console.log(`📍 좌표 누락 고객 ${missingCustomers.length}명 발견, 지오코딩 시작...`)
+    
+    let successCount = 0
+    let failCount = 0
+    
+    // 각 고객의 주소를 지오코딩 (순차 처리로 API 제한 고려)
+    for (const customer of missingCustomers) {
+      try {
+        const geoData = await geocodeAddress(customer.address)
+        
+        if (geoData && geoData.latitude && geoData.longitude) {
+          // 좌표 업데이트
+          await axios.patch(`/api/customers/${customer.id}/coordinates`, {
+            latitude: geoData.latitude,
+            longitude: geoData.longitude
+          })
+          successCount++
+          console.log(`✅ ${customer.customer_name}: 좌표 업데이트 성공`)
+        } else {
+          failCount++
+          console.log(`⚠️ ${customer.customer_name}: 지오코딩 실패`)
+        }
+        
+        // API 제한 고려: 각 요청 사이에 100ms 대기
+        await new Promise(resolve => setTimeout(resolve, 100))
+      } catch (error) {
+        failCount++
+        console.error(`❌ ${customer.customer_name}: 업데이트 오류`, error)
+      }
+    }
+    
+    if (successCount > 0) {
+      showToast(`${successCount}명의 고객 좌표가 자동 업데이트되었습니다`, 'success')
+      await loadCustomers()  // 고객 목록 새로고침
+    }
+    
+    console.log(`🔄 자동 업데이트 완료: 성공 ${successCount}명, 실패 ${failCount}명`)
+  } catch (error) {
+    console.error('❌ 자동 업데이트 오류:', error)
+  }
+}
+
+// 수동 좌표 업데이트 (관리자 버튼)
+async function manualUpdateMissingCoordinates() {
+  try {
+    // 먼저 좌표 누락 고객 수 확인
+    const checkResponse = await axios.get('/api/customers/missing-coordinates?limit=1')
+    
+    if (!checkResponse.data.success || checkResponse.data.total === 0) {
+      showToast('모든 고객의 좌표가 등록되어 있습니다', 'info')
+      return
+    }
+    
+    // 사용자 확인
+    const totalMissing = state.customers.filter(c => !c.latitude || !c.longitude).length
+    if (!confirm(`좌표가 누락된 ${totalMissing}명의 고객 중 최대 50명의 주소를 지오코딩합니다.\n\n카카오맵 API는 하루 200개 제한이 있으므로 신중하게 사용해주세요.\n\n계속하시겠습니까?`)) {
+      return
+    }
+    
+    showToast('좌표 업데이트를 시작합니다...', 'info')
+    
+    // 자동 업데이트 함수 호출
+    await autoUpdateMissingCoordinates()
+  } catch (error) {
+    console.error('❌ 수동 업데이트 오류:', error)
+    showToast('좌표 업데이트 중 오류가 발생했습니다', 'error')
   }
 }
 
@@ -978,6 +1073,9 @@ function renderAdminDashboard() {
               </button>
               <button onclick="openUploadModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                 <i class="fas fa-file-excel mr-2"></i>Excel 업로드
+              </button>
+              <button onclick="manualUpdateMissingCoordinates()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                <i class="fas fa-map-marker-alt mr-2"></i>좌표 업데이트
               </button>
               <button onclick="deleteSelectedCustomers()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
                 <i class="fas fa-trash mr-2"></i>선택 삭제
@@ -4107,6 +4205,7 @@ window.openNavigation = openNavigation
 window.openNavigationByAddress = openNavigationByAddress
 window.openTMapNavigation = openTMapNavigation
 window.openTMapNavigationByAddress = openTMapNavigationByAddress
+window.manualUpdateMissingCoordinates = manualUpdateMissingCoordinates
 window.renderAdminDashboard = renderAdminDashboard
 window.toggleCustomerPanel = toggleCustomerPanel
 window.moveToUserLocation = moveToUserLocation

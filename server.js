@@ -586,6 +586,59 @@ app.post('/api/customers/batch-delete', async (c) => {
   }
 })
 
+// 좌표 누락 고객 조회 (지오코딩 재시도 대상)
+app.get('/api/customers/missing-coordinates', async (c) => {
+  try {
+    const limit = parseInt(c.req.query('limit') || '50')  // 기본 50개
+    
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id, customer_name, address')
+      .is('latitude', null)
+      .is('longitude', null)
+      .limit(limit)
+    
+    if (error) {
+      console.error('❌ 좌표 누락 고객 조회 오류:', error)
+      return c.json({ success: false, message: '조회 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    console.log(`📍 좌표 누락 고객: ${data.length}명`)
+    return c.json({ success: true, customers: data, total: data.length })
+  } catch (error) {
+    console.error('❌ 좌표 누락 고객 조회 오류:', error)
+    return c.json({ success: false, message: '조회 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 고객 좌표 업데이트 (지오코딩 결과 저장)
+app.patch('/api/customers/:id/coordinates', async (c) => {
+  try {
+    const id = c.req.param('id')
+    const { latitude, longitude } = await c.req.json()
+    
+    if (!latitude || !longitude) {
+      return c.json({ success: false, message: '좌표 정보가 필요합니다.' }, 400)
+    }
+    
+    const { error } = await supabase
+      .from('customers')
+      .update({ latitude, longitude })
+      .eq('id', id)
+    
+    if (error) {
+      console.error('❌ 좌표 업데이트 오류:', error)
+      return c.json({ success: false, message: '좌표 업데이트 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    console.log(`✅ 좌표 업데이트 성공: ID ${id} → (${latitude}, ${longitude})`)
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('❌ 좌표 업데이트 오류:', error)
+    return c.json({ success: false, message: '좌표 업데이트 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
 // Excel 데이터 검증 (메모리 기반 - 변경 없음)
 app.post('/api/customers/validate', async (c) => {
   try {
