@@ -2752,14 +2752,12 @@ function showCustomerDetail(customerId) {
       </div>
       
       <div class="pt-4 border-t space-y-3">
-        ${customer.latitude && customer.longitude ? `
-        <button onclick="openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-6 py-4 text-lg font-semibold bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 active:bg-yellow-700 transition touch-action-manipulation">
+        <button onclick="${customer.latitude && customer.longitude ? `openNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')` : `openNavigationByAddress('${customer.address.replace(/'/g, "\\'")}', '${customer.customer_name.replace(/'/g, "\\'")}')`}" class="w-full px-6 py-4 text-lg font-semibold bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 active:bg-yellow-700 transition touch-action-manipulation">
           <i class="fas fa-location-arrow mr-2"></i>Kakao Map에서 길 안내
         </button>
-        <button onclick="openTMapNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')" class="w-full px-6 py-4 text-lg font-semibold bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:bg-blue-700 transition touch-action-manipulation">
+        <button onclick="${customer.latitude && customer.longitude ? `openTMapNavigation(${customer.latitude}, ${customer.longitude}, '${customer.customer_name.replace(/'/g, "\\'")}')` : `openTMapNavigationByAddress('${customer.address.replace(/'/g, "\\'")}', '${customer.customer_name.replace(/'/g, "\\'")}')`}" class="w-full px-6 py-4 text-lg font-semibold bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:bg-blue-700 transition touch-action-manipulation">
           <i class="fas fa-map-marked-alt mr-2"></i>T Map에서 길 안내
         </button>
-        ` : ''}
       </div>
     </div>
   `
@@ -2879,6 +2877,54 @@ function openTMapNavigation(lat, lng, name) {
   } catch (error) {
     console.error('T Map 길 안내 오류:', error)
     showToast('T Map 길 안내를 실행할 수 없습니다', 'error')
+  }
+}
+
+// 주소 기반 카카오내비 (좌표 없이 주소만으로 길 안내)
+function openNavigationByAddress(address, name) {
+  try {
+    // Kakao Map 검색 URL (주소로 검색 후 길 안내)
+    const kakaoMapSearchUrl = `https://map.kakao.com/link/search/${encodeURIComponent(address)}`
+    
+    // 모바일 환경 체크
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    
+    if (isMobile) {
+      // 모바일: 카카오맵 앱으로 주소 검색
+      window.location.href = kakaoMapSearchUrl
+    } else {
+      // 데스크톱: 새 탭에서 카카오맵 열기
+      window.open(kakaoMapSearchUrl, '_blank')
+    }
+    
+    showToast('카카오맵에서 주소를 검색합니다', 'success')
+  } catch (error) {
+    console.error('카카오맵 주소 검색 오류:', error)
+    showToast('카카오맵 실행에 실패했습니다', 'error')
+  }
+}
+
+// 주소 기반 T Map 네비게이션 (좌표 없이 주소만으로 길 안내)
+function openTMapNavigationByAddress(address, name) {
+  try {
+    // T Map 주소 검색 URL
+    const tmapSearchUrl = `https://www.tmap.co.kr/tmap2/mobile/search.jsp?name=${encodeURIComponent(address)}`
+    
+    // 모바일 환경 체크
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    
+    if (isMobile) {
+      // 모바일: T Map 앱으로 주소 검색
+      window.location.href = tmapSearchUrl
+    } else {
+      // 데스크톱: 새 탭에서 T Map 열기
+      window.open(tmapSearchUrl, '_blank')
+    }
+    
+    showToast('T Map에서 주소를 검색합니다', 'success')
+  } catch (error) {
+    console.error('T Map 주소 검색 오류:', error)
+    showToast('T Map 실행에 실패했습니다', 'error')
   }
 }
 
@@ -4058,6 +4104,9 @@ window.showCustomerDetailOnMap = showCustomerDetailOnMap
 window.closeCustomerDetail = closeCustomerDetail
 window.openDirections = openDirections
 window.openNavigation = openNavigation
+window.openNavigationByAddress = openNavigationByAddress
+window.openTMapNavigation = openTMapNavigation
+window.openTMapNavigationByAddress = openTMapNavigationByAddress
 window.renderAdminDashboard = renderAdminDashboard
 window.toggleCustomerPanel = toggleCustomerPanel
 window.moveToUserLocation = moveToUserLocation
