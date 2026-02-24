@@ -956,12 +956,13 @@ function renderAdminDashboard() {
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">고객명</th>
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">연락처</th>
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">주소</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">좌표 상태</th>
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">등록일</th>
                 </tr>
               </thead>
               <tbody id="customerTableBody" class="divide-y divide-gray-200">
                 <tr>
-                  <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                  <td colspan="6" class="px-4 py-8 text-center text-gray-500">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
                     <p>고객 데이터를 불러오는 중...</p>
                   </td>
@@ -1972,7 +1973,7 @@ function renderCustomerTable() {
   if (state.customers.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
           <i class="fas fa-inbox text-4xl mb-2"></i>
           <p>등록된 고객이 없습니다</p>
         </td>
@@ -1981,7 +1982,14 @@ function renderCustomerTable() {
     return
   }
   
-  tbody.innerHTML = state.customers.map(customer => `
+  tbody.innerHTML = state.customers.map(customer => {
+    // 좌표 상태 확인
+    const hasCoordinates = customer.latitude && customer.longitude
+    const coordStatus = hasCoordinates 
+      ? '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>등록됨</span>'
+      : '<span class="text-red-600"><i class="fas fa-times-circle mr-1"></i>누락</span>'
+    
+    return `
     <tr class="hover:bg-gray-50">
       <td class="px-4 py-3">
         <input type="checkbox" class="customer-checkbox rounded" value="${customer.id}">
@@ -1989,9 +1997,11 @@ function renderCustomerTable() {
       <td class="px-4 py-3 text-sm text-gray-900">${customer.customer_name || '-'}</td>
       <td class="px-4 py-3 text-sm text-gray-600">${customer.phone || '-'}</td>
       <td class="px-4 py-3 text-sm text-gray-600 max-w-md truncate" title="${customer.address || '-'}">${customer.address || '-'}</td>
+      <td class="px-4 py-3 text-sm">${coordStatus}</td>
       <td class="px-4 py-3 text-sm text-gray-600">${new Date(customer.created_at).toLocaleDateString('ko-KR')}</td>
     </tr>
-  `).join('')
+    `
+  }).join('')
 }
 
 // ============================================
