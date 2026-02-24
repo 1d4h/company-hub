@@ -490,7 +490,7 @@ function renderLogin() {
           </div>
           
           <!-- 아이디 저장 & 자동 로그인 -->
-          <div class="mt-4 mb-4 flex items-center justify-between text-sm">
+          <div class="mt-4 mb-4 flex flex-col space-y-3 text-sm">
             <label class="flex items-center cursor-pointer">
               <input 
                 type="checkbox" 
