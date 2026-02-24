@@ -356,6 +356,7 @@ function parseExcel(file) {
           '순번': 'sequence',
           '횟수': 'count',
           '접수일자': 'receipt_date',
+          '현장확인일자': 'receipt_date',  // 현장 통합 관리 파일용
           '업체': 'company',
           '구분': 'category',
           '사업구분': 'category',
