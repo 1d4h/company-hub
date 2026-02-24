@@ -1289,7 +1289,9 @@ function renderUserMap() {
   `
   
   // 먼저 고객 데이터 로드
+  console.log('🗺️ renderUserMap() 시작 - 고객 데이터 로드 중...')
   loadCustomers().then(() => {
+    console.log('✅ loadCustomers() 완료 - 고객 수:', state.customers?.length || 0)
     // 전체 고객 수 표시
     const totalCountEl = document.getElementById('totalCustomerCount')
     if (totalCountEl) {
@@ -1346,8 +1348,10 @@ function renderUserMap() {
     }, 100)
     
     // DOM이 완전히 렌더링될 때까지 대기
+    console.log('⏳ DOM 렌더링 대기 중...')
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        console.log('✅ DOM 렌더링 완료, 지도 초기화 시작...')
         // T Map API 로드 시도
         const mapDiv = document.getElementById('map')
         if (!mapDiv) {
@@ -1356,8 +1360,11 @@ function renderUserMap() {
           return
         }
         
+        console.log('✅ 지도 컨테이너 찾음:', mapDiv)
+        console.log('🔍 Kakao Maps API 체크:', typeof kakao, kakao?.maps ? '사용 가능' : '사용 불가')
+        
         if (typeof kakao !== 'undefined' && kakao.maps) {
-          console.log('✅ Kakao Maps API 로드됨, 지도 초기화 시작...')
+          console.log('✅ Kakao Maps API 로드됨, initKakaoMap() 호출...')
           initKakaoMap()
         } else {
           console.warn('⚠️ Kakao Maps API를 사용할 수 없습니다')
