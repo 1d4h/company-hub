@@ -277,6 +277,35 @@ async function batchUploadCustomers(data, uploadSource = 'as_reception') {
   }
 }
 
+// 주소 정제 함수: 불필요한 문자 제거
+function cleanAddress(address) {
+  if (!address || typeof address !== 'string') {
+    return address
+  }
+  
+  let cleaned = address
+  
+  // 1. 양쪽 공백 제거
+  cleaned = cleaned.trim()
+  
+  // 2. 끝의 점(.) 제거 (여러 개 있을 수 있음)
+  cleaned = cleaned.replace(/\.+\s*$/g, '')
+  
+  // 3. 다시 양쪽 공백 제거
+  cleaned = cleaned.trim()
+  
+  // 4. 연속된 공백을 하나로
+  cleaned = cleaned.replace(/\s+/g, ' ')
+  
+  // 5. 특수문자 정리 (주소에 필요한 문자만 남김)
+  // 한글, 숫자, 영문, 공백, 하이픈(-), 쉼표(,), 괄호() 만 허용
+  // cleaned = cleaned.replace(/[^\w\s가-힣0-9a-zA-Z\-,()]/g, '')
+  
+  console.log(`🧹 주소 정제: "${address}" → "${cleaned}"`)
+  
+  return cleaned
+}
+
 // Kakao Maps Geocoder를 사용한 주소 → 좌표 변환
 async function geocodeAddress(address) {
   return new Promise((resolve) => {
@@ -286,9 +315,12 @@ async function geocodeAddress(address) {
       return
     }
     
+    // 주소 정제
+    const cleanedAddress = cleanAddress(address)
+    
     // Kakao Maps API 사용 가능 여부 확인
     if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) {
-      console.warn('⚠️ Kakao Maps API 사용 불가:', address)
+      console.warn('⚠️ Kakao Maps API 사용 불가:', cleanedAddress)
       resolve({ latitude: null, longitude: null })
       return
     }
@@ -296,19 +328,19 @@ async function geocodeAddress(address) {
     // Kakao Maps Geocoder 생성
     const geocoder = new kakao.maps.services.Geocoder()
     
-    // 주소로 좌표 검색
-    geocoder.addressSearch(address, (result, status) => {
+    // 정제된 주소로 좌표 검색
+    geocoder.addressSearch(cleanedAddress, (result, status) => {
       if (status === kakao.maps.services.Status.OK && result && result.length > 0) {
         const coords = {
           latitude: parseFloat(result[0].y),
           longitude: parseFloat(result[0].x),
-          address: result[0].address_name || address
+          address: result[0].address_name || cleanedAddress
         }
-        console.log(`✅ 지오코딩 성공: ${address} → (${coords.latitude}, ${coords.longitude})`)
+        console.log(`✅ 지오코딩 성공: ${cleanedAddress} → (${coords.latitude}, ${coords.longitude})`)
         resolve(coords)
       } else {
-        console.warn(`⚠️ 지오코딩 실패: ${address}, null 좌표 반환`)
-        resolve({ latitude: null, longitude: null, address })
+        console.warn(`⚠️ 지오코딩 실패: ${cleanedAddress}, null 좌표 반환`)
+        resolve({ latitude: null, longitude: null, address: cleanedAddress })
       }
     })
   })
@@ -444,7 +476,14 @@ function parseExcel(file) {
             }
             
             if (value !== undefined && value !== null && String(value).trim() !== '') {
-              row[mappedKey] = String(value).trim()
+              let processedValue = String(value).trim()
+              
+              // 주소 필드인 경우 정제
+              if (mappedKey === 'address') {
+                processedValue = cleanAddress(processedValue)
+              }
+              
+              row[mappedKey] = processedValue
               hasData = true
             }
           })
