@@ -2683,9 +2683,16 @@ function showCustomerDetail(customerId) {
       </div>
       ` : ''}
       
+      ${customer.receipt_date ? `
       <div>
-        <p class="text-sm text-gray-600">접수일자</p>
-        <p class="text-gray-800">${formatDate(customer.receipt_date || customer.created_at)}</p>
+        <p class="text-sm text-gray-600">접수일</p>
+        <p class="text-gray-800">${formatDate(customer.receipt_date)}</p>
+      </div>
+      ` : ''}
+      
+      <div>
+        <p class="text-sm text-gray-600">등록일</p>
+        <p class="text-gray-800">${formatDate(customer.created_at)}</p>
       </div>
       
       <div class="pt-4 border-t space-y-3">
