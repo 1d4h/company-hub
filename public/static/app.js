@@ -15,7 +15,7 @@ const state = {
   sortedCustomers: null,  // 거리순 정렬된 고객 목록
   asPhotos: [],  // A/S 사진 배열
   currentASCustomerId: null,  // 현재 A/S 작업 중인 고객 ID
-  gpsEnabled: true,  // GPS 활성화 상태 (기본값: 활성화)
+  gpsEnabled: false,  // GPS 활성화 상태 (기본값: 비활성화 - 사용자가 버튼을 눌러 활성화)
   notificationPollingInterval: null,  // 알림 폴링 인터벌
   lastNotificationCheck: null  // 마지막 알림 확인 시간
 }
