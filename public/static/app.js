@@ -1657,12 +1657,14 @@ function initKakaoMap() {
     }
     
     // Kakao Maps 생성
+    console.log('🗺️ 지도 생성 옵션:', { centerLat, centerLng, level })
     const mapOption = {
       center: new kakao.maps.LatLng(centerLat, centerLng),
       level: level
     }
     
     state.map = new kakao.maps.Map(mapDiv, mapOption)
+    console.log('✅ Kakao Maps 객체 생성 완료, 지도 중심:', state.map.getCenter().toString())
     
     // 지도 타입 컨트롤 추가 (일반/위성 전환)
     const mapTypeControl = new kakao.maps.MapTypeControl()
