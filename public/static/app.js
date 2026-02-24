@@ -201,13 +201,18 @@ function handleKakaoCodeFromURL() {
 
 async function loadCustomers() {
   try {
+    console.log('📥 고객 데이터 로드 시작...')
     const response = await axios.get('/api/customers')
+    console.log('📥 API 응답 받음:', response.data.success, '고객 수:', response.data.customers?.length)
     if (response.data.success) {
       state.customers = response.data.customers
+      console.log('✅ state.customers 저장 완료:', state.customers.length, '명')
+      console.log('📊 샘플 데이터 (첫 2개):', state.customers.slice(0, 2))
       return true
     }
     return false
   } catch (error) {
+    console.error('❌ 고객 로드 실패:', error)
     showToast('고객 목록 조회 중 오류가 발생했습니다', 'error')
     return false
   }
@@ -1593,6 +1598,8 @@ function initKakaoMap() {
   
   try {
     console.log('🗺️ Kakao Maps 지도 초기화 시작...')
+    console.log('📊 state.customers 총 개수:', state.customers?.length || 0)
+    console.log('📊 state.customers 샘플 (첫 3개):', state.customers?.slice(0, 3))
     
     // 서울 중심 좌표 (기본값)
     const defaultCenterLat = 37.5665
@@ -1601,6 +1608,7 @@ function initKakaoMap() {
     // 고객 좌표의 중심점 계산 (가장 밀집된 지역 찾기)
     const validCustomers = state.customers.filter(c => c.latitude && c.longitude)
     console.log(`📍 표시할 고객 수: ${validCustomers.length}`)
+    console.log('📍 유효한 고객 샘플 (첫 3개):', validCustomers.slice(0, 3))
     
     let centerLat, centerLng, level
     
