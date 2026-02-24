@@ -258,11 +258,12 @@ async function validateCustomerData(data) {
   }
 }
 
-async function batchUploadCustomers(data) {
+async function batchUploadCustomers(data, uploadSource = 'as_reception') {
   try {
     const response = await axios.post('/api/customers/batch-upload', {
       data,
-      userId: state.currentUser.id
+      userId: state.currentUser.id,
+      uploadSource  // 'as_reception' 또는 'field_management'
     })
     if (response.data.success) {
       showToast(`${response.data.summary.success}명의 고객이 등록되었습니다`, 'success')
@@ -2586,8 +2587,11 @@ async function confirmUpload() {
     
     const validRowsWithGeo = await Promise.all(geocodePromises)
     
+    // 업로드 소스 결정 ('as' = 'as_reception', 'site' = 'field_management')
+    const uploadSource = state.currentUploadTab === 'site' ? 'field_management' : 'as_reception'
+    
     // 데이터 업로드
-    await batchUploadCustomers(validRowsWithGeo)
+    await batchUploadCustomers(validRowsWithGeo, uploadSource)
     
     // 완료 후 모달 닫기
     closeUploadModal()
@@ -2686,7 +2690,7 @@ function showCustomerDetail(customerId) {
       
       ${customer.receipt_date ? `
       <div>
-        <p class="text-sm text-gray-600">접수일</p>
+        <p class="text-sm text-gray-600">${customer.upload_source === 'field_management' ? '현장확인일자' : '접수일'}</p>
         <p class="text-gray-800">${formatDate(customer.receipt_date)}</p>
       </div>
       ` : ''}

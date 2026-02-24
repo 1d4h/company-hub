@@ -393,6 +393,7 @@ app.post('/api/customers/batch-upload', async (c) => {
     // 프론트엔드에서 'data' 또는 'customers'로 전송 가능
     const customers = requestBody.data || requestBody.customers
     const userId = requestBody.userId
+    const uploadSource = requestBody.uploadSource || 'as_reception'  // 기본값: A/S 접수대장
     
     if (!customers || !Array.isArray(customers)) {
       console.error('❌ 잘못된 데이터 형식:', typeof customers)
@@ -411,7 +412,7 @@ app.post('/api/customers/batch-upload', async (c) => {
       'customer_name', 'phone', 'install_date', 'heat_source',
       'address', 'address_detail', 'as_content', 'install_team',
       'region', 'receptionist', 'as_result', 'latitude', 'longitude',
-      'created_by'
+      'created_by', 'upload_source'
     ]
     
     // 날짜 컬럼 목록
@@ -420,7 +421,8 @@ app.post('/api/customers/batch-upload', async (c) => {
     // 데이터 정제: 허용된 컬럼만 추출하고 잘못된 키 제거
     const cleanCustomers = customers.map((customer, index) => {
       const cleaned = {
-        created_by: userId || null
+        created_by: userId || null,
+        upload_source: uploadSource  // 업로드 소스 저장
       }
       
       // 허용된 컬럼만 복사
