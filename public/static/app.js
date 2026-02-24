@@ -281,14 +281,15 @@ async function batchUploadCustomers(data, uploadSource = 'as_reception') {
 async function geocodeAddress(address) {
   return new Promise((resolve) => {
     if (!address || address.trim() === '') {
-      resolve({ latitude: 37.5665, longitude: 126.9780 })
+      console.warn('⚠️ 주소가 비어있음, null 좌표 반환')
+      resolve({ latitude: null, longitude: null })
       return
     }
     
     // Kakao Maps API 사용 가능 여부 확인
     if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) {
-      console.warn('⚠️ Kakao Maps API 사용 불가, 기본 좌표 사용:', address)
-      resolve({ latitude: 37.5665, longitude: 126.9780 })
+      console.warn('⚠️ Kakao Maps API 사용 불가:', address)
+      resolve({ latitude: null, longitude: null })
       return
     }
     
@@ -306,8 +307,8 @@ async function geocodeAddress(address) {
         console.log(`✅ 지오코딩 성공: ${address} → (${coords.latitude}, ${coords.longitude})`)
         resolve(coords)
       } else {
-        console.warn(`⚠️ 지오코딩 실패: ${address}, 기본 좌표 사용`)
-        resolve({ latitude: 37.5665, longitude: 126.9780, address })
+        console.warn(`⚠️ 지오코딩 실패: ${address}, null 좌표 반환`)
+        resolve({ latitude: null, longitude: null, address })
       }
     })
   })
