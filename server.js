@@ -507,6 +507,29 @@ app.put('/api/customers/:id', async (c) => {
   }
 })
 
+// 고객 전체 삭제 (관리자 전용) - 반드시 /:id 라우트보다 먼저 정의
+app.delete('/api/customers/all', async (c) => {
+  try {
+    console.log('🗑️ 고객 전체 삭제 요청 받음')
+    
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .neq('id', 0) // 모든 레코드 삭제 (id != 0 조건은 모든 행을 선택)
+    
+    if (error) {
+      console.error('❌ 고객 전체 삭제 오류:', error)
+      return c.json({ success: false, message: '고객 전체 삭제 중 오류가 발생했습니다.' }, 500)
+    }
+    
+    console.log('✅ 고객 전체 삭제 완료')
+    return c.json({ success: true, message: '모든 고객 데이터가 삭제되었습니다.' })
+  } catch (error) {
+    console.error('❌ 고객 전체 삭제 실패:', error)
+    return c.json({ success: false, message: '고객 전체 삭제 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
 // 고객 삭제
 app.delete('/api/customers/:id', async (c) => {
   try {
