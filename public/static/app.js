@@ -356,8 +356,9 @@ function parseExcel(file) {
           // 선택 필드
           '순번': 'sequence',
           '횟수': 'count',
-          '접수일자': 'receipt_date',
-          '현장확인일자': 'receipt_date',  // 현장 통합 관리 파일용
+          '접수': 'receipt_date',           // A/S 접수대장용
+          '접수일자': 'receipt_date',       // A/S 접수대장용
+          '현장확인일자': 'receipt_date',    // 현장 통합 관리용
           '업체': 'company',
           '구분': 'category',
           '사업구분': 'category',
@@ -2690,7 +2691,7 @@ function showCustomerDetail(customerId) {
       
       ${customer.receipt_date ? `
       <div>
-        <p class="text-sm text-gray-600">${customer.upload_source === 'field_management' ? '현장확인일자' : '접수일'}</p>
+        <p class="text-sm text-gray-600">${customer.upload_source === 'field_management' ? '현장확인일자' : '접수일자'}</p>
         <p class="text-gray-800">${formatDate(customer.receipt_date)}</p>
       </div>
       ` : ''}
