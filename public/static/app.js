@@ -534,6 +534,21 @@ function renderLogin() {
           카카오 로그인
         </button>
       </div>
+      
+      <!-- 푸터 (사업자 정보) -->
+      <footer class="mt-8 text-center text-white text-xs">
+        <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg p-6 max-w-md mx-auto">
+          <div class="space-y-2">
+            <p class="font-semibold text-sm">드림박스</p>
+            <p>대표자: 이진웅 | 사업자등록번호: 509-04-32195</p>
+            <p>통신판매업 신고번호: 2022-광주서구-0467</p>
+            <p>주소: 광주광역시 서구 화운로 193번길 25, 103동 1105호</p>
+            <p>(내방동, 내방마을주공아파트)</p>
+            <p>대표 전화: 010-7604-8244</p>
+            <p>이메일: jinung.biz@gmail.com</p>
+          </div>
+        </div>
+      </footer>
     </div>
   `
   
@@ -908,6 +923,18 @@ function renderAdminDashboard() {
           </div>
         </div>
       </main>
+      
+      <!-- 푸터 (사업자 정보) -->
+      <footer class="bg-gray-100 border-t mt-8">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+          <div class="text-center text-gray-600 text-xs space-y-2">
+            <p class="font-semibold text-sm text-gray-800">드림박스</p>
+            <p>대표자: 이진웅 | 사업자등록번호: 509-04-32195 | 통신판매업 신고번호: 2022-광주서구-0467</p>
+            <p>주소: 광주광역시 서구 화운로 193번길 25, 103동 1105호 (내방동, 내방마을주공아파트)</p>
+            <p>대표 전화: 010-7604-8244 | 이메일: jinung.biz@gmail.com</p>
+          </div>
+        </div>
+      </footer>
     </div>
     
     <!-- Excel 업로드 모달 -->
@@ -1155,6 +1182,14 @@ function renderUserMap() {
               <div id="customerList"></div>
             </div>
           </div>
+        </div>
+      </div>
+      
+      <!-- 푸터 (사업자 정보) - 지도 하단 고정 -->
+      <div class="absolute bottom-0 left-0 right-0 bg-white bg-opacity-90 backdrop-blur-sm border-t z-10">
+        <div class="px-4 py-2 text-center text-gray-600 text-xs">
+          <p class="font-semibold text-xs text-gray-800">드림박스</p>
+          <p>대표: 이진웅 | 사업자등록번호: 509-04-32195 | 전화: 010-7604-8244 | 이메일: jinung.biz@gmail.com</p>
         </div>
       </div>
     </div>
