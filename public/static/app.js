@@ -345,7 +345,7 @@ function parseExcel(file) {
           '소유주연락처': 'phone',
           '주소': 'address',
           '설치장소': 'address',
-          '설치위치': 'address',
+          // '설치위치'는 address로 매핑하지 않음 (옥외형, 옥상 등의 값)
           
           // 선택 필드
           '순번': 'sequence',
@@ -366,7 +366,8 @@ function parseExcel(file) {
           '접수자': 'receptionist',
           'AS결과': 'as_result',
           'A/S결과': 'as_result',
-          '점검결과': 'as_result'
+          '점검결과': 'as_result',
+          '설치위치': 'install_location'  // 별도 필드로 처리
         }
         
         // 헤더 정규화 함수: 줄바꿈, 공백, 특수문자 제거
@@ -944,15 +945,14 @@ function renderAdminDashboard() {
                     <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="rounded">
                   </th>
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">고객명</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">전화번호</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">연락처</th>
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">주소</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">위치</th>
                   <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">등록일</th>
                 </tr>
               </thead>
               <tbody id="customerTableBody" class="divide-y divide-gray-200">
                 <tr>
-                  <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                  <td colspan="5" class="px-4 py-8 text-center text-gray-500">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
                     <p>고객 데이터를 불러오는 중...</p>
                   </td>
@@ -1951,7 +1951,7 @@ function renderCustomerTable() {
   if (state.customers.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
           <i class="fas fa-inbox text-4xl mb-2"></i>
           <p>등록된 고객이 없습니다</p>
         </td>
@@ -1965,14 +1965,9 @@ function renderCustomerTable() {
       <td class="px-4 py-3">
         <input type="checkbox" class="customer-checkbox rounded" value="${customer.id}">
       </td>
-      <td class="px-4 py-3 text-sm text-gray-900">${customer.customer_name}</td>
+      <td class="px-4 py-3 text-sm text-gray-900">${customer.customer_name || '-'}</td>
       <td class="px-4 py-3 text-sm text-gray-600">${customer.phone || '-'}</td>
-      <td class="px-4 py-3 text-sm text-gray-600">${customer.address}</td>
-      <td class="px-4 py-3 text-sm">
-        ${customer.latitude && customer.longitude 
-          ? '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>등록됨</span>' 
-          : '<span class="text-gray-400"><i class="fas fa-times-circle mr-1"></i>미등록</span>'}
-      </td>
+      <td class="px-4 py-3 text-sm text-gray-600 max-w-md truncate" title="${customer.address || '-'}">${customer.address || '-'}</td>
       <td class="px-4 py-3 text-sm text-gray-600">${new Date(customer.created_at).toLocaleDateString('ko-KR')}</td>
     </tr>
   `).join('')
