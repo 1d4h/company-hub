@@ -405,21 +405,6 @@ app.post('/api/customers/batch-upload', async (c) => {
     console.log(`📤 고객 일괄 업로드 시작: ${customers.length}명`)
     console.log('📄 첫 번째 고객 원본 데이터:', JSON.stringify(customers[0], null, 2))
     
-    // ⚠️ 중요: 전남 지역만 필터링
-    const filteredCustomers = customers.filter(customer => {
-      const address = customer.address || ''
-      return address.startsWith('전남')
-    })
-    
-    console.log(`🔍 전남 지역 필터링: ${customers.length}명 → ${filteredCustomers.length}명`)
-    
-    if (filteredCustomers.length === 0) {
-      return c.json({
-        success: false,
-        message: '전남 지역 고객 데이터가 없습니다.'
-      }, 400)
-    }
-    
     // 허용되는 컬럼 목록 (Supabase customers 테이블 스키마)
     const allowedColumns = [
       'sequence', 'count', 'receipt_date', 'company', 'category',
@@ -433,7 +418,7 @@ app.post('/api/customers/batch-upload', async (c) => {
     const dateColumns = ['receipt_date', 'install_date']
     
     // 데이터 정제: 허용된 컬럼만 추출하고 잘못된 키 제거
-    const cleanCustomers = filteredCustomers.map((customer, index) => {
+    const cleanCustomers = customers.map((customer, index) => {
       const cleaned = {
         created_by: userId || null
       }
