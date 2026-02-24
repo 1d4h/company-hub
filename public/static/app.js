@@ -988,25 +988,35 @@ function renderAdminDashboard() {
           </button>
         </div>
         
-        <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 140px)">
-          <div id="uploadStep1" class="space-y-4">
-            <!-- 메일 첨부 형식 UI -->
+        <!-- 탭 메뉴 -->
+        <div class="border-b border-gray-200">
+          <div class="flex">
+            <button id="tab-as" onclick="switchUploadTab('as')" class="flex-1 px-6 py-3 text-sm font-medium text-blue-600 border-b-2 border-blue-600 bg-blue-50">
+              <i class="fas fa-clipboard-list mr-2"></i>A/S 접수대장
+            </button>
+            <button id="tab-site" onclick="switchUploadTab('site')" class="flex-1 px-6 py-3 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-900 hover:bg-gray-50">
+              <i class="fas fa-building mr-2"></i>현장 통합 관리
+            </button>
+          </div>
+        </div>
+        
+        <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 200px)">
+          <!-- A/S 접수대장 탭 -->
+          <div id="uploadTab-as" class="space-y-4">
             <div class="bg-white border border-gray-300 rounded-lg">
-              <!-- 파일 첨부 영역 -->
               <div class="p-4 border-b border-gray-200">
                 <div class="flex items-center gap-3">
                   <label class="text-sm font-medium text-gray-700 w-20">파일 첨부:</label>
                   <div class="flex-1">
-                    <input type="file" id="excelFile" accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(event)">
-                    <button onclick="document.getElementById('excelFile').click()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm">
+                    <input type="file" id="excelFile-as" accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(event, 'as')">
+                    <button onclick="document.getElementById('excelFile-as').click()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm">
                       <i class="fas fa-paperclip mr-2"></i>파일 선택
                     </button>
                   </div>
                 </div>
               </div>
               
-              <!-- 첨부된 파일 목록 -->
-              <div id="attachedFilesList" class="p-4 bg-gray-50 min-h-[100px]">
+              <div id="attachedFilesList-as" class="p-4 bg-gray-50 min-h-[100px]">
                 <p class="text-sm text-gray-500 text-center py-8">
                   <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i><br>
                   첨부된 파일이 없습니다
@@ -1014,18 +1024,57 @@ function renderAdminDashboard() {
               </div>
             </div>
             
-            <!-- 샘플 파일 다운로드 -->
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div class="flex items-center justify-between">
                 <div>
                   <p class="font-semibold text-blue-900 mb-1">
-                    <i class="fas fa-info-circle mr-2"></i>템플릿 파일
+                    <i class="fas fa-info-circle mr-2"></i>A/S 접수대장 템플릿
                   </p>
                   <p class="text-xs text-blue-700">
-                    A/S접수현황 Excel 템플릿을 다운로드하여 작성하세요
+                    필수 필드: 고객명, 전화번호, 주소
                   </p>
                 </div>
-                <button onclick="downloadSampleExcel()" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                <button onclick="downloadSampleExcel('as')" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                  <i class="fas fa-download mr-2"></i>다운로드
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 현장 통합 관리 탭 -->
+          <div id="uploadTab-site" class="hidden space-y-4">
+            <div class="bg-white border border-gray-300 rounded-lg">
+              <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center gap-3">
+                  <label class="text-sm font-medium text-gray-700 w-20">파일 첨부:</label>
+                  <div class="flex-1">
+                    <input type="file" id="excelFile-site" accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(event, 'site')">
+                    <button onclick="document.getElementById('excelFile-site').click()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm">
+                      <i class="fas fa-paperclip mr-2"></i>파일 선택
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div id="attachedFilesList-site" class="p-4 bg-gray-50 min-h-[100px]">
+                <p class="text-sm text-gray-500 text-center py-8">
+                  <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i><br>
+                  첨부된 파일이 없습니다
+                </p>
+              </div>
+            </div>
+            
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="font-semibold text-green-900 mb-1">
+                    <i class="fas fa-info-circle mr-2"></i>현장 통합 관리 템플릿
+                  </p>
+                  <p class="text-xs text-green-700">
+                    필수 필드: 실사용자, 설치장소, 소유주연락처
+                  </p>
+                </div>
+                <button onclick="downloadSampleExcel('site')" class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
                   <i class="fas fa-download mr-2"></i>다운로드
                 </button>
               </div>
@@ -2025,37 +2074,68 @@ async function deleteSelectedCustomers() {
 
 function openUploadModal() {
   const modal = document.getElementById('uploadModal')
-  const step1 = document.getElementById('uploadStep1')
   
   if (modal) {
     modal.classList.remove('hidden')
   }
   
-  if (step1) {
-    step1.classList.remove('hidden')
+  // 기본 탭을 A/S로 설정
+  switchUploadTab('as')
+}
+
+function switchUploadTab(tabType) {
+  // 탭 버튼 스타일 변경
+  const tabAS = document.getElementById('tab-as')
+  const tabSite = document.getElementById('tab-site')
+  const contentAS = document.getElementById('uploadTab-as')
+  const contentSite = document.getElementById('uploadTab-site')
+  
+  if (tabType === 'as') {
+    // A/S 탭 활성화
+    tabAS.className = 'flex-1 px-6 py-3 text-sm font-medium text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+    tabSite.className = 'flex-1 px-6 py-3 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-900 hover:bg-gray-50'
+    contentAS.classList.remove('hidden')
+    contentSite.classList.add('hidden')
+  } else {
+    // 현장 통합 탭 활성화
+    tabAS.className = 'flex-1 px-6 py-3 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-900 hover:bg-gray-50'
+    tabSite.className = 'flex-1 px-6 py-3 text-sm font-medium text-green-600 border-b-2 border-green-600 bg-green-50'
+    contentAS.classList.add('hidden')
+    contentSite.classList.remove('hidden')
   }
   
-  // uploadStep2는 더 이상 사용하지 않으므로 제거
+  // 현재 탭 타입 저장
+  state.currentUploadTab = tabType
 }
 
 function closeUploadModal() {
   document.getElementById('uploadModal').classList.add('hidden')
   state.uploadFile = null
   state.uploadFileName = null
+  state.currentUploadTab = 'as'
   
-  // 첨부 파일 목록 초기화
-  const listEl = document.getElementById('attachedFilesList')
-  if (listEl) {
-    listEl.innerHTML = `
-      <p class="text-sm text-gray-500 text-center py-8">
-        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i><br>
-        첨부된 파일이 없습니다
-      </p>
-    `
-  }
+  // 두 탭의 첨부 파일 목록 초기화
+  const listAS = document.getElementById('attachedFilesList-as')
+  const listSite = document.getElementById('attachedFilesList-site')
+  
+  const emptyHTML = `
+    <p class="text-sm text-gray-500 text-center py-8">
+      <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i><br>
+      첨부된 파일이 없습니다
+    </p>
+  `
+  
+  if (listAS) listAS.innerHTML = emptyHTML
+  if (listSite) listSite.innerHTML = emptyHTML
+  
+  // 파일 입력 초기화
+  const fileInputAS = document.getElementById('excelFile-as')
+  const fileInputSite = document.getElementById('excelFile-site')
+  if (fileInputAS) fileInputAS.value = ''
+  if (fileInputSite) fileInputSite.value = ''
 }
 
-async function handleFileSelect(event) {
+async function handleFileSelect(event, tabType) {
   const file = event.target.files[0]
   if (!file) return
   
@@ -2071,9 +2151,10 @@ async function handleFileSelect(event) {
     // 파일명 저장
     state.uploadFileName = file.name
     state.uploadFile = file
+    state.currentUploadTab = tabType
     
     // 첨부 파일 목록에 표시
-    renderAttachedFile(file)
+    renderAttachedFile(file, tabType)
     
     showToast('파일이 첨부되었습니다. "파일 열기"로 내용을 확인하세요', 'success')
   } catch (error) {
@@ -2086,8 +2167,8 @@ async function handleFileSelect(event) {
 }
 
 // 첨부 파일 표시 (메일 형식)
-function renderAttachedFile(file) {
-  const listEl = document.getElementById('attachedFilesList')
+function renderAttachedFile(file, tabType) {
+  const listEl = document.getElementById(`attachedFilesList-${tabType}`)
   const fileSize = (file.size / 1024).toFixed(2) // KB
   
   listEl.innerHTML = `
@@ -2102,7 +2183,7 @@ function renderAttachedFile(file) {
             <p class="text-xs text-gray-500 mt-1">${fileSize} KB</p>
           </div>
         </div>
-        <button onclick="removeAttachedFile()" class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition">
+        <button onclick="removeAttachedFile('${tabType}')" class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -2216,13 +2297,13 @@ async function validateAttachedFile() {
 }
 
 // 첨부 파일 제거
-function removeAttachedFile() {
+function removeAttachedFile(tabType) {
   state.uploadFile = null
   state.uploadFileName = null
   state.uploadRawData = null
   state.uploadPreviewData = null
   
-  const listEl = document.getElementById('attachedFilesList')
+  const listEl = document.getElementById(`attachedFilesList-${tabType}`)
   listEl.innerHTML = `
     <p class="text-sm text-gray-500 text-center py-8">
       <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i><br>
@@ -2230,48 +2311,82 @@ function removeAttachedFile() {
     </p>
   `
   
+  // 파일 입력 초기화
+  const fileInput = document.getElementById(`excelFile-${tabType}`)
+  if (fileInput) fileInput.value = ''
+  
   showToast('파일이 제거되었습니다', 'success')
 }
 
 // 샘플 Excel 파일 다운로드
-function downloadSampleExcel() {
-  // 샘플 데이터 생성 (필수 필드 + 선택 필드)
-  const sampleData = [
-    ['고객명', '전화번호', '주소', '순번', '횟수', '접수일자', '업체', '구분', '설치연,월', '열원', 'A/S접수내용', '설치팀', '지역', '접수자', 'AS결과'],
-    ['김철수', '010-1234-5678', '서울특별시 강남구 테헤란로 123', 1, 1, '2024-01-15', '서울지사', 'AS', '2023-12', '가스', '온수 온도 조절 불량', '1팀', '강남', '홍길동', '수리 완료'],
-    ['이영희', '010-2345-6789', '서울특별시 서초구 서초대로 78길 22', 2, 1, '2024-01-16', '서울지사', 'AS', '2023-11', '전기', '난방 작동 불량', '2팀', '서초', '김영희', '부품 교체 완료'],
-    ['박민수', '010-3456-7890', '서울특별시 송파구 올림픽로 300', 3, 2, '2024-01-17', '서울지사', 'AS', '2023-10', '가스', '보일러 소음 발생', '1팀', '송파', '홍길동', '점검 완료']
-  ]
-  
-  // 워크북 생성
-  const wb = XLSX.utils.book_new()
-  const ws = XLSX.utils.aoa_to_sheet(sampleData)
-  
-  // 열 너비 설정
-  ws['!cols'] = [
-    { wch: 12 },  // 고객명 (필수)
-    { wch: 15 },  // 전화번호 (필수)
-    { wch: 40 },  // 주소 (필수)
-    { wch: 8 },   // 순번
-    { wch: 8 },   // 횟수
-    { wch: 12 },  // 접수일자
-    { wch: 12 },  // 업체
-    { wch: 8 },   // 구분
-    { wch: 12 },  // 설치연,월
-    { wch: 8 },   // 열원
-    { wch: 30 },  // A/S접수내용
-    { wch: 10 },  // 설치팀
-    { wch: 10 },  // 지역
-    { wch: 10 },  // 접수자
-    { wch: 20 }   // AS결과
-  ]
-  
-  XLSX.utils.book_append_sheet(wb, ws, 'A/S접수현황')
-  
-  // 파일 다운로드
-  XLSX.writeFile(wb, 'A/S접수현황_템플릿.xlsx')
-  showToast('템플릿 파일이 다운로드되었습니다\n\n필수 필드: 고객명, 전화번호, 주소\n선택 필드: 순번, 횟수, 접수일자, 업체, 구분, 설치연월, 열원, A/S접수내용, 설치팀, 지역, 접수자, AS결과', 'success')
+function downloadSampleExcel(tabType = 'as') {
+  if (tabType === 'as') {
+    // A/S 접수대장 템플릿
+    const sampleData = [
+      ['고객명', '전화번호', '주소', '순번', '횟수', '접수일자', '업체', '구분', '설치연,월', '열원', 'A/S접수내용', '설치팀', '지역', '접수자', 'AS결과'],
+      ['김철수', '010-1234-5678', '서울특별시 강남구 테헤란로 123', 1, 1, '2024-01-15', '서울지사', 'AS', '2023-12', '가스', '온수 온도 조절 불량', '1팀', '강남', '홍길동', '수리 완료'],
+      ['이영희', '010-2345-6789', '서울특별시 서초구 서초대로 78길 22', 2, 1, '2024-01-16', '서울지사', 'AS', '2023-11', '전기', '난방 작동 불량', '2팀', '서초', '김영희', '부품 교체 완료'],
+      ['박민수', '010-3456-7890', '서울특별시 송파구 올림픽로 300', 3, 2, '2024-01-17', '서울지사', 'AS', '2023-10', '가스', '보일러 소음 발생', '1팀', '송파', '홍길동', '점검 완료']
+    ]
+    
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet(sampleData)
+    
+    ws['!cols'] = [
+      { wch: 12 },  // 고객명
+      { wch: 15 },  // 전화번호
+      { wch: 40 },  // 주소
+      { wch: 8 },   // 순번
+      { wch: 8 },   // 횟수
+      { wch: 12 },  // 접수일자
+      { wch: 12 },  // 업체
+      { wch: 8 },   // 구분
+      { wch: 12 },  // 설치연,월
+      { wch: 8 },   // 열원
+      { wch: 30 },  // A/S접수내용
+      { wch: 10 },  // 설치팀
+      { wch: 10 },  // 지역
+      { wch: 10 },  // 접수자
+      { wch: 20 }   // AS결과
+    ]
+    
+    XLSX.utils.book_append_sheet(wb, ws, 'A/S접수현황')
+    XLSX.writeFile(wb, 'A/S접수대장_템플릿.xlsx')
+    showToast('A/S 접수대장 템플릿이 다운로드되었습니다', 'success')
+    
+  } else if (tabType === 'site') {
+    // 현장 통합 관리 템플릿
+    const sampleData = [
+      ['실사용자', '설치장소', '소유주연락처', '설비관리번호', '업체', '사업구분', '설비종류', '에너지원', '설치년도', '설치용량', '열원'],
+      ['임진태', '전남 완도군 보길면 정동길 9-14', '010-2371-0329', '2023-N-SO03-61-006933', '이삭', '주택지원', '태양열', '태양열', '2023', '13.6', '600'],
+      ['김영희', '전남 진도군 의신면 칠전길 17-21', '010-5161-7603', '2023-N-SO03-62-007001', '이삭', '주택지원', '태양열', '태양열', '2023', '13.6', '600'],
+      ['박민수', '경기도 파주시 탄현면 법흥리 123', '010-9876-5432', '2023-N-SO03-63-007002', '이삭', '주택지원', '태양열', '태양열', '2023', '13.6', '600']
+    ]
+    
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet(sampleData)
+    
+    ws['!cols'] = [
+      { wch: 12 },  // 실사용자 (필수)
+      { wch: 45 },  // 설치장소 (필수)
+      { wch: 15 },  // 소유주연락처 (필수)
+      { wch: 25 },  // 설비관리번호
+      { wch: 12 },  // 업체
+      { wch: 12 },  // 사업구분
+      { wch: 12 },  // 설비종류
+      { wch: 10 },  // 에너지원
+      { wch: 10 },  // 설치년도
+      { wch: 10 },  // 설치용량
+      { wch: 10 }   // 열원
+    ]
+    
+    XLSX.utils.book_append_sheet(wb, ws, '현장통합관리')
+    XLSX.writeFile(wb, '현장통합관리_템플릿.xlsx')
+    showToast('현장 통합 관리 템플릿이 다운로드되었습니다', 'success')
+  }
 }
+
+// 기존 downloadSampleExcel 함수 제거하고 위로 통합
 
 // 파일 정보 표시
 function renderFileInfo() {
