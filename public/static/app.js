@@ -2909,32 +2909,21 @@ function openNavigation(lat, lng, name) {
       return
     }
     
-    // Kakao Navi 앱 URL 스킴
-    const kakaoNaviUrl = `kakaonavi://navigate?destination=${encodeURIComponent(name)}&lat=${lat}&lng=${lng}`
-    
-    // Kakao Map 웹 URL (앱이 없을 경우 대체)
+    // Kakao Map 웹 URL (모바일 딥링크)
     const kakaoMapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`
     
     // 모바일 환경 체크
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
     
     if (isMobile) {
-      // 모바일에서는 Kakao Navi 앱 스킴 시도
-      window.location.href = kakaoNaviUrl
-      
-      // 1.5초 후에도 페이지가 그대로면 앱이 없는 것으로 판단
-      setTimeout(() => {
-        // 앱이 없으면 Kakao Map 웹으로 이동
-        if (!document.hidden) {
-          window.location.href = kakaoMapUrl
-        }
-      }, 1500)
+      // 모바일: 카카오맵 딥링크 (앱이 설치되어 있으면 앱으로, 없으면 웹으로)
+      window.location.href = kakaoMapUrl
     } else {
-      // 데스크톱에서는 Kakao Map 웹으로 연결
+      // 데스크톱: 새 탭에서 카카오맵 웹 열기
       window.open(kakaoMapUrl, '_blank')
     }
     
-    showToast('카카오내비로 길 안내를 시작합니다', 'success')
+    showToast('카카오맵으로 길 안내를 시작합니다', 'success')
   } catch (error) {
     console.error('길 안내 오류:', error)
     showToast('길 안내를 실행할 수 없습니다', 'error')
